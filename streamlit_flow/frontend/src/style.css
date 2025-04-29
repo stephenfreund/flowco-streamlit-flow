@@ -1,6 +1,21 @@
+
 .markdown-node * {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
+    font-family: "Source Sans Pro", sans-serif;
+    object-fit: contain;
+}
+
+.markdown-node h6 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 0.5rem;
+}
+
+.markdown-node pre {
+    overflow: hidden;
+    text-align: left;
+    color: #660000;
 }
 
 :root {
@@ -43,3 +58,31 @@ th {
 table img {
     background-color: transparent;
 }
+
+
+.react-flow__node-resizer {
+    border-radius: 0;
+    border: none;
+  }
+  
+
+.react-flow__resize-control.handle {
+    background-color: #ffffff;
+    border-color: #000000;
+    border-radius: 0;
+    width: 7px;
+    height: 7px;
+  }
+  
+  .react-flow__handle {
+    position: absolute;
+    pointer-events: none;
+    min-width: 5px;
+    min-height: 5px;
+    width: 7px;
+    height: 7px;
+    background: white ;
+    border: 1px solid #1a192b;
+    border-radius: 100%;
+  }
+  

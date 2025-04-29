@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, NodeResizer } from 'reactflow';
 import Markdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm'
@@ -28,44 +28,65 @@ const MemoizedMarkdown = memo(({ content }) => (
     </Markdown>
 ));
 
-const MarkdownInputNode = ({ data, sourcePosition }) => {
+const MarkdownInputNode = ({ data, sourcePosition, selected }) => {
     
     const position = handlePosMap[sourcePosition] || Position.Right;
     
     return (
         <>
             <Handle type="source" position={position} isConnectable />
-            <div className="markdown-node">
-                <MemoizedMarkdown content={data.content} />
+            <NodeResizer
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
+            <div style= {{ overflow: 'hidden' }}>
+                <div className="markdown-node">
+                    <MemoizedMarkdown content={data.content} />
+                </div>
             </div>
         </>
     );
 };
 
-const MarkdownOutputNode = ({ data, targetPosition }) => {
+const MarkdownOutputNode = ({ data, targetPosition, selected }) => {
 
     const position = handlePosMap[targetPosition] || Position.Left;
     
     return (
         <>
             <Handle type="target" position={position} isConnectable />
-            <div className="markdown-node">
-                <MemoizedMarkdown content={data.content} />
+            <NodeResizer
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
+            <div style= {{ overflow: 'hidden' }}>
+                <div className="markdown-node">
+                    <MemoizedMarkdown content={data.content} />
+                </div>
             </div>
         </>
     );
 };
 
-const MarkdownDefaultNode = ({ data, sourcePosition, targetPosition }) => {
+const MarkdownDefaultNode = ({ data, sourcePosition, targetPosition, selected }) => {
 
     const sourcePos = handlePosMap[sourcePosition] || Position.Right;
     const targetPos = handlePosMap[targetPosition] || Position.Left;
     
     return (
         <>
+            <NodeResizer
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
             <Handle type="source" position={sourcePos} isConnectable />
-            <div className="markdown-node">
-                <MemoizedMarkdown content={data.content} />
+            <div style= {{ overflow: 'hidden' }}>
+                <div className="markdown-node">
+                    <MemoizedMarkdown content={data.content} />
+                </div>
             </div>
             <Handle type="target" position={targetPos} isConnectable />
         </>

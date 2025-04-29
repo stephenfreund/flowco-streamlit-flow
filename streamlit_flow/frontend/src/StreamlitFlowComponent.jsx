@@ -86,7 +86,7 @@ const StreamlitFlowComponent = (props) => {
         setEdgeContextMenu(null);
     }
 
-    useEffect(() => Streamlit.setFrameHeight());
+    useEffect(() => Streamlit.setFrameHeight(window.innerHeight));
 
     // Layout calculation
     useEffect(() => {
@@ -133,7 +133,7 @@ const StreamlitFlowComponent = (props) => {
     }, [props.theme.base])
 
     // Context Menu Callbacks
-
+    
     const handlePaneContextMenu = (event) => {
         event.preventDefault();
 
@@ -210,7 +210,7 @@ const StreamlitFlowComponent = (props) => {
     }
 
     return (
-        <div style={{height: props.args.height}}>
+        <div style={{height: '100vh', width: '100vw'}}>
             <ReactFlow
                 nodeTypes={nodeTypes}
                 ref={ref}
@@ -223,6 +223,7 @@ const StreamlitFlowComponent = (props) => {
                 fitView={props.args.fitView}
                 style={props.args.style}
                 onNodeClick={handleNodeClick}
+                onNodeDoubleClick={handleNodeContextMenu}
                 onEdgeClick={handleEdgeClick}
                 onNodeDragStart={clearMenus}
                 onPaneClick={handlePaneClick}
@@ -266,8 +267,26 @@ const StreamlitFlowComponent = (props) => {
                                             setEdges={setEdges}
                                             handleDataReturnToStreamlit={handleDataReturnToStreamlit} 
                                             theme={props.theme}/>}
-                    {props.args["showControls"] && <Controls/>}
-                    {props.args["showMiniMap"] && <MiniMap pannable zoomable/>}
+                    {props.args["showControls"] && <Controls
+                            style={{
+                            position: 'absolute',
+                            top: 50,
+                            left: 10,
+                            right: 'auto',
+                            bottom: 'auto',
+                            }}
+                    />}
+                    {props.args["showMiniMap"] && <MiniMap 
+                              style={{
+                                position: 'absolute',
+                                top: 50,
+                                right: 10,
+                                left: 'auto',
+                                bottom: 'auto',
+                                width: 200,
+                                height: 150,
+                              }}
+                             pannable zoomable/>}
                 </ReactFlow>
         </div>
     );
