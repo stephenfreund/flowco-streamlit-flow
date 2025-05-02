@@ -20,8 +20,8 @@ const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeHighlight, rehypeRaw, rehypeKatex];
 
 const MemoizedMarkdown = memo(({ content }) => (
-    <Markdown 
-        rehypePlugins={rehypePlugins} 
+    <Markdown
+        rehypePlugins={rehypePlugins}
         remarkPlugins={remarkPlugins}
     >
         {content}
@@ -31,9 +31,16 @@ const MemoizedMarkdown = memo(({ content }) => (
 const MarkdownInputNode = ({ data, sourcePosition, selected }) => {
     
     const position = handlePosMap[sourcePosition] || Position.Right;
-    
+
     return (
         <>
+            <NodeResizer
+                color="#ff0071"
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
+
             <Handle type="source" position={position} isConnectable />
             <NodeResizer
                 isVisible={selected}
@@ -52,19 +59,18 @@ const MarkdownInputNode = ({ data, sourcePosition, selected }) => {
 const MarkdownOutputNode = ({ data, targetPosition, selected }) => {
 
     const position = handlePosMap[targetPosition] || Position.Left;
-    
+
     return (
         <>
-            <Handle type="target" position={position} isConnectable />
             <NodeResizer
+                color="#ff0071"
                 isVisible={selected}
                 minWidth={100}
                 minHeight={30}
             />
-            <div style= {{ overflow: 'hidden' }}>
-                <div className="markdown-node">
-                    <MemoizedMarkdown content={data.content} />
-                </div>
+            <Handle type="target" position={position} isConnectable={false} />
+            <div className="markdown-node">
+                <MemoizedMarkdown content={data.content} />
             </div>
         </>
     );
@@ -74,10 +80,11 @@ const MarkdownDefaultNode = ({ data, sourcePosition, targetPosition, selected })
 
     const sourcePos = handlePosMap[sourcePosition] || Position.Right;
     const targetPos = handlePosMap[targetPosition] || Position.Left;
-    
+
     return (
         <>
             <NodeResizer
+                color="#ff0071"
                 isVisible={selected}
                 minWidth={100}
                 minHeight={30}
