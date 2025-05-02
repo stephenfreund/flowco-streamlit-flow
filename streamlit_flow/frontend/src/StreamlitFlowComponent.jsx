@@ -7,6 +7,9 @@ import ReactFlow, {
     Controls,
     Background,
     MiniMap,
+    getOutgoers,
+    getIncomers,
+    getConnectedEdges,
     useNodesState,
     useEdgesState,
     addEdge,
@@ -235,6 +238,51 @@ const StreamlitFlowComponent = (props) => {
         handleDataReturnToStreamlit(updatedNodes, edges, null);
     }
 
+    const isValidConnection = (connection) => {
+            // we are using getNodes and getEdges helpers here
+            // to make sure we create isValidConnection function only once
+            const nodes = getNodes();
+            const edges = getEdges();
+            const target = nodes.find((node) => node.id === connection.target);
+            const hasCycle = (node, visited = new Set()) => {
+            if (visited.has(node.id)) return false;
+        
+            visited.add(node.id);
+        
+            for (const outgoer of getOutgoers(node, nodes, edges)) {
+                if (outgoer.id === connection.source) return true;
+                if (hasCycle(outgoer, visited)) return true;
+            }
+            };
+        
+            if (target.id === connection.source) return false;
+            return !hasCycle(target);
+        }
+                
+    const onNodesDelete = (deleted) => {
+            setEdges(
+            deleted.reduce((acc, node) => {
+                const incomers = getIncomers(node, nodes, edges);
+                const outgoers = getOutgoers(node, nodes, edges);
+                const connectedEdges = getConnectedEdges([node], edges);
+        
+                const remainingEdges = acc.filter(
+                (edge) => !connectedEdges.includes(edge),
+                );
+        
+                const createdEdges = incomers.flatMap(({ id: source }) =>
+                outgoers.map(({ id: target }) => ({
+                    id: `${source}->${target}`,
+                    source,
+                    target,
+                })),
+                );
+        
+                return [...remainingEdges, ...createdEdges];
+            }, edges),
+            );
+        }    
+
     return (
         <div style={{height: '100vh', width: '100vw'}}>
             <ReactFlow
@@ -246,10 +294,12 @@ const StreamlitFlowComponent = (props) => {
                 edges={edges}
                 onEdgesChange={onEdgesChange}
                 onConnect={props.args.allowNewEdges ? handleConnect : null}
+                isValidConnection={isValidConnection}
                 fitView={props.args.fitView}
                 style={props.args.style}
                 onNodeClick={handleNodeClick}
                 onNodeDoubleClick={handleNodeContextMenu}
+                onNodesDelete={onNodesDelete}
                 onEdgeClick={handleEdgeClick}
                 onNodeDragStart={clearMenus}
                 onPaneClick={handlePaneClick}

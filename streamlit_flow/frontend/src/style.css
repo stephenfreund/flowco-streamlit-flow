@@ -8,6 +8,15 @@
     font-family: "Source Sans Pro",Arial,Helvetica,sans-serif;
 }
 
+.react-flow__node:has(*>.markdown-node-plot) {
+  /* white inner border, black outer border */
+  box-shadow:
+    inset 0 0 0 1px white,
+    inset 0 0 0 2px black,
+    0 0 0 1px white,
+    0 0 0 2px black;
+}
+
 .markdown-node > p {
     margin: 0rem;
     margin-top: 0.5rem;
@@ -122,3 +131,112 @@ table img {
   padding: 0px !important
 }
 
+.react-flow__node-input {
+    border-radius: 50%;
+}
+
+@keyframes pulse-animation {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 0.2;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+    
+.blinking-text {
+    position: absolute;
+    /* left: 50%; */
+    top:-0.75rem;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 0.75em;
+    animation: pulse-animation 1.5s ease-in-out infinite;
+    pointer-events: none; /* so it doesn’t block connections */
+    font-family: "Source Sans Pro",Arial,Helvetica,sans-serif;
+    left: 0%;
+    font-weight: 400;
+  }
+  .markdown-node-wrapper {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  
+  /* when data.kind === 'plot', add a double border */
+.markdown-node-wrapper--double-border {
+    border: 2px solid #333;
+  }
+  
+.markdown-node-wrapper--double-border::after {
+    content: "";
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    bottom: 4px;
+    border: 1px solid #333;
+    pointer-events: none;
+  }
+
+  .btn-divider {
+    height: 5px;
+    width: 100%;
+    background-color: #ccc;
+    align-self: stretch;
+  }
+  
+  .reactflow {
+    position: relative;
+  }
+  
+  .markdown-node-hover-container {
+    display: inline-block; /* or flex/block depending on your layout */
+  }
+  
+  .node-popup-overlay {
+    position: absolute;
+    top: 1%;
+    left: 1%;
+    width: 98%;
+    height: 98%;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid #ccc;
+    box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 9999;
+    overflow: auto;
+    padding: 16px;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+  
+  
+
+.react-flow__node-custominput {
+    background: #fff
+}
+
+.react-flow__handle.connecting {
+    background: #ff6060
+}
+
+.react-flow__handle.valid {
+    background: #5d9
+}
+
+/* position the lock icon */
+.lock-icon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 0.8em;       /* tweak to taste */
+  color: rgba(0,0,0,0.6); /* or any color you like */
+  z-index: 10;
+  cursor: default;
+}

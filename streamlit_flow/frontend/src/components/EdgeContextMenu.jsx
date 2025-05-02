@@ -126,7 +126,7 @@ const EdgeContextMenu = ({edgeContextMenu, nodes, edges, setEdgeContextMenu, set
                         borderRadius: '8px',
                         zIndex: 10}}>
             {(!showModal && !modalClosing) && <ButtonGroup vertical>
-                <Button variant="outline-primary" onClick={handleEditEdge}><i className="bi bi-tools"></i> Edit Edge</Button>
+                {/* <Button variant="outline-primary" onClick={handleEditEdge}><i className="bi bi-tools"></i> Edit Edge</Button> */}
                 <Button variant={edgeContextMenu.edge.deletable ? "outline-danger" : "secondary"} onClick={handleDeleteEdge} disabled={!edgeContextMenu.edge.deletable}><i className="bi bi-trash3"></i> Delete Edge</Button>
             </ButtonGroup>}
         </div>

@@ -12,9 +12,10 @@ st.title("Streamlit Flow Example")
 
 
 if 'curr_state' not in st.session_state:
-	nodes = [StreamlitFlowNode("1", (0, 0), {'content': 'Node 1'}, 'input', 'right'),
-			StreamlitFlowNode("2", (1, 0), {'content': 'Node 2'}, 'default', 'right', 'left'),
-			StreamlitFlowNode("3", (2, 0), {'content': 'Node 3'}, 'default', 'right', 'left'),
+	nodes = [StreamlitFlowNode("1", (0, 0), {'pill': 'Node 12', 'content': 'Beep', 'blinkText': "moo", 'kind':'table', 'html': '<h1>Beep</h1>'}, 'input', selectable=True, deletable=True, connectable=True),
+		    StreamlitFlowNode("5", (1, 0), {'content': 'Node 2', 'kind':'plot', 'locked':'true'}, 'default', connectable=True),
+			StreamlitFlowNode("2", (1, 0), {'content': 'Node 55'}, 'default'),
+			StreamlitFlowNode("3", (2, 0), {'content': 'Node 3'}, 'default'),
 			]
 
 	edges = [StreamlitFlowEdge("1-2", "1", "2", animated=True, marker_start={}, marker_end={'type': 'arrow'}),
@@ -105,3 +106,6 @@ with col2:
 
 with col3:
 	st.write(st.session_state.curr_state.selected_id)
+
+for node in st.session_state.curr_state.nodes:
+	st.write(node.data)

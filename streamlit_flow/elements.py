@@ -41,7 +41,7 @@ class StreamlitFlowNode:
         dragging: bool = False,
         draggable: bool = True,
         selectable: bool = False,
-        connectable: bool = False,
+        connectable: bool = True,
         resizing: bool = False,
         deletable: bool = False,
         z_index: float = 0,
@@ -59,8 +59,6 @@ class StreamlitFlowNode:
         self.position = {"x": pos[0], "y": pos[1]}
         self.data = data
         self.type = node_type
-        self.source_position = source_position
-        self.target_position = target_position
         self.hidden = hidden
         self.selected = selected
         self.dragging = dragging
@@ -93,8 +91,6 @@ class StreamlitFlowNode:
             pos=(node_dict["position"].get("x", 0), node_dict["position"].get("y", 0)),
             data=node_dict.get("data", {}),
             node_type=node_dict.get("type", "default"),
-            source_position=node_dict.get("sourcePosition", "bottom"),
-            target_position=node_dict.get("targetPosition", "top"),
             hidden=node_dict.get("hidden", False),
             selected=node_dict.get("selected", False),
             dragging=node_dict.get("dragging", False),
@@ -114,18 +110,6 @@ class StreamlitFlowNode:
             "input",
             "output",
         ], f"Node type must be one of ['default', 'input', 'output']. Got {self.type}"
-        assert self.source_position in [
-            "top",
-            "bottom",
-            "left",
-            "right",
-        ], f"Source position must be one of ['top', 'bottom', 'left', 'right']. Got {self.source_position}"
-        assert self.target_position in [
-            "top",
-            "bottom",
-            "left",
-            "right",
-        ], f"Target position must be one of ['top', 'bottom', 'left', 'right']. Got {self.target_position}"
 
     def asdict(self) -> Dict[str, any]:
         node_dict = {
@@ -133,8 +117,6 @@ class StreamlitFlowNode:
             "position": self.position,
             "data": self.data,
             "type": self.type,
-            "sourcePosition": self.source_position,
-            "targetPosition": self.target_position,
             "hidden": self.hidden,
             "selected": self.selected,
             "dragging": self.dragging,
