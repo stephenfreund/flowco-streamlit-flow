@@ -5,7 +5,6 @@ import {
 import StreamlitFlowComponent from "./StreamlitFlowComponent";
 
 
-
 const StreamlitFlowApp = (props) => {
 
     return <>

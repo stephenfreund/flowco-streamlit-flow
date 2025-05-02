@@ -21,7 +21,7 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 
 import './style.css';
 
-import {MarkdownInputNode, MarkdownOutputNode, MarkdownDefaultNode} from "./components/MarkdownNode";
+import {MarkdownInputNode, MarkdownOutputNode, MarkdownDefaultNode } from "./components/MarkdownNode";
 import PaneConextMenu from "./components/PaneContextMenu";
 import NodeContextMenu from "./components/NodeContextMenu";
 import EdgeContextMenu from "./components/EdgeContextMenu";
@@ -85,6 +85,32 @@ const StreamlitFlowComponent = (props) => {
         setNodeContextMenu(null);
         setEdgeContextMenu(null);
     }
+
+    useEffect(() => {
+        function hideError(e) {
+            if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+                const resizeObserverErrDiv = document.getElementById(
+                    'webpack-dev-server-client-overlay-div'
+                );
+                const resizeObserverErr = document.getElementById(
+                    'webpack-dev-server-client-overlay'
+                );
+                if (resizeObserverErr) {
+                    resizeObserverErr.setAttribute('style', 'display: none');
+                }
+                if (resizeObserverErrDiv) {
+                    resizeObserverErrDiv.setAttribute('style', 'display: none');
+                }
+                console.log('ResizeObserver loop completed with undelivered notifications.');
+            }
+        }
+    
+        window.addEventListener('error', hideError)
+        return () => {
+            window.addEventListener('error', hideError)
+        }
+    }, [])
+    
 
     useEffect(() => Streamlit.setFrameHeight());
 
@@ -266,8 +292,10 @@ const StreamlitFlowComponent = (props) => {
                                             setEdges={setEdges}
                                             handleDataReturnToStreamlit={handleDataReturnToStreamlit} 
                                             theme={props.theme}/>}
-                    {props.args["showControls"] && <Controls/>}
-                    {props.args["showMiniMap"] && <MiniMap pannable zoomable/>}
+                    {props.args["showControls"] && <Controls style={{ top: 50, left: 10, right: 'auto', bottom: 'auto' }}/>}
+                    {props.args["showMiniMap"] && <MiniMap pannable zoomable
+                    style={{ top: 50, left: 'auto', right: 10, bottom: 'auto' }}
+                    />}
                 </ReactFlow>
         </div>
     );

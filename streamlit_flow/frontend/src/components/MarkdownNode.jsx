@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Handle, Position } from 'reactflow';
+import { Handle, Position, NodeResizer } from 'reactflow';
 import Markdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm'
@@ -20,20 +20,27 @@ const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeHighlight, rehypeRaw, rehypeKatex];
 
 const MemoizedMarkdown = memo(({ content }) => (
-    <Markdown 
-        rehypePlugins={rehypePlugins} 
+    <Markdown
+        rehypePlugins={rehypePlugins}
         remarkPlugins={remarkPlugins}
     >
         {content}
     </Markdown>
 ));
 
-const MarkdownInputNode = ({ data, sourcePosition }) => {
-    
+const MarkdownInputNode = ({ data, sourcePosition, selected }) => {
+
     const position = handlePosMap[sourcePosition] || Position.Right;
-    
+
     return (
         <>
+            <NodeResizer
+                color="#ff0071"
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
+
             <Handle type="source" position={position} isConnectable />
             <div className="markdown-node">
                 <MemoizedMarkdown content={data.content} />
@@ -42,13 +49,19 @@ const MarkdownInputNode = ({ data, sourcePosition }) => {
     );
 };
 
-const MarkdownOutputNode = ({ data, targetPosition }) => {
+const MarkdownOutputNode = ({ data, targetPosition, selected }) => {
 
     const position = handlePosMap[targetPosition] || Position.Left;
-    
+
     return (
         <>
-            <Handle type="target" position={position} isConnectable />
+            <NodeResizer
+                color="#ff0071"
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
+            <Handle type="target" position={position} isConnectable={false} />
             <div className="markdown-node">
                 <MemoizedMarkdown content={data.content} />
             </div>
@@ -56,13 +69,20 @@ const MarkdownOutputNode = ({ data, targetPosition }) => {
     );
 };
 
-const MarkdownDefaultNode = ({ data, sourcePosition, targetPosition }) => {
+
+const MarkdownDefaultNode = ({ data, sourcePosition, targetPosition, selected }) => {
 
     const sourcePos = handlePosMap[sourcePosition] || Position.Right;
     const targetPos = handlePosMap[targetPosition] || Position.Left;
-    
+
     return (
         <>
+            <NodeResizer
+                color="#ff0071"
+                isVisible={selected}
+                minWidth={100}
+                minHeight={30}
+            />
             <Handle type="source" position={sourcePos} isConnectable />
             <div className="markdown-node">
                 <MemoizedMarkdown content={data.content} />
