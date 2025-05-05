@@ -95,13 +95,20 @@ def streamlit_flow(
     )
 
     if component_value is None:
-        return state
+        return (state, None)
 
-    new_state = StreamlitFlowState(
-        nodes=[StreamlitFlowNode.from_dict(node) for node in component_value["nodes"]],
-        edges=[StreamlitFlowEdge.from_dict(edge) for edge in component_value["edges"]],
-        selected_id=component_value["selectedId"],
-        timestamp=component_value["timestamp"],
+    new_state = (
+        StreamlitFlowState(
+            nodes=[
+                StreamlitFlowNode.from_dict(node) for node in component_value["nodes"]
+            ],
+            edges=[
+                StreamlitFlowEdge.from_dict(edge) for edge in component_value["edges"]
+            ],
+            selected_id=component_value["selectedId"],
+            timestamp=component_value["timestamp"],
+        ),
+        component_value["command"],
     )
 
     return new_state

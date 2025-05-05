@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from "react"
+import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import {
     Streamlit,
 } from "streamlit-component-lib"
@@ -24,7 +24,7 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 
 import './style.css';
 
-import {MarkdownInputNode, MarkdownOutputNode, MarkdownDefaultNode } from "./components/MarkdownNode";
+import { MarkdownInputNode, MarkdownOutputNode, MarkdownDefaultNode } from "./components/MarkdownNode";
 import PaneConextMenu from "./components/PaneContextMenu";
 import NodeContextMenu from "./components/NodeContextMenu";
 import EdgeContextMenu from "./components/EdgeContextMenu";
@@ -33,10 +33,10 @@ import createElkGraphLayout from "./layouts/ElkLayout";
 
 const StreamlitFlowComponent = (props) => {
 
-    const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode}), []);
-    
+    const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode }), []);
+
     const [viewFitAfterLayout, setViewFitAfterLayout] = useState(null);
-    const [nodes, setNodes, onNodesChange] = useNodesState(props.args.nodes);
+    const [nodes, setNodes, onNodesChangeRaw] = useNodesState(props.args.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(props.args.edges);
     const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(props.args.timestamp);
     const [layoutNeedsUpdate, setLayoutNeedsUpdate] = useState(false);
@@ -47,16 +47,18 @@ const StreamlitFlowComponent = (props) => {
     const [nodeContextMenu, setNodeContextMenu] = useState(null);
     const [edgeContextMenu, setEdgeContextMenu] = useState(null);
 
-    const nodesInitialized = useNodesInitialized({'includeHiddenNodes': false});
+    const nodesInitialized = useNodesInitialized({ 'includeHiddenNodes': false });
+
+    const [htmlPopup, setHtmlPopup] = useState(null);
 
     const ref = useRef(null);
     const reactFlowInstance = useReactFlow();
-    const {fitView, getNodes, getEdges} = useReactFlow();
+    const { fitView, getNodes, getEdges } = useReactFlow();
 
     // Helper Functions
     const handleLayout = () => {
         createElkGraphLayout(getNodes(), getEdges(), props.args.layoutOptions)
-            .then(({nodes, edges}) => {
+            .then(({ nodes, edges }) => {
                 setNodes(nodes);
                 setEdges(edges);
                 setViewFitAfterLayout(false);
@@ -66,12 +68,24 @@ const StreamlitFlowComponent = (props) => {
             .catch(err => console.log(err));
     }
 
-    const handleDataReturnToStreamlit = (_nodes, _edges, selectedId) => {
+    const handleDataReturnToStreamlit = (_nodes, _edges, selectedId, command = null) => {
 
         const timestamp = (new Date()).getTime();
         setLastUpdateTimestamp(timestamp);
-        Streamlit.setComponentValue({'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp});
+        Streamlit.setComponentValue({ 'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp, 'command': command });
     }
+
+
+
+    // wrap onNodesChange so we can catch resize events
+    const onNodesChange = useCallback((changes) => {
+        console.log('onNodesChange', changes);
+        onNodesChangeRaw(changes);
+        if (changes.length === 1 && changes[0].type === 'dimensions') {
+            handleDataReturnToStreamlit(getNodes(), getEdges(), changes[0].id);
+        }
+     }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
+        
 
     const calculateMenuPosition = (event) => {
         const pane = ref.current.getBoundingClientRect();
@@ -107,41 +121,83 @@ const StreamlitFlowComponent = (props) => {
                 console.log('ResizeObserver loop completed with undelivered notifications.');
             }
         }
-    
+
         window.addEventListener('error', hideError)
         return () => {
             window.addEventListener('error', hideError)
         }
     }, [])
-    
+
 
     useEffect(() => Streamlit.setFrameHeight());
 
-    // Layout calculation
-    useEffect(() => {
-        if(nodesInitialized && !layoutCalculated)
-            handleLayout();
-    }, [nodesInitialized, layoutCalculated]);
+    
+
+  // build the exact ELK settings you listed
+  const elkOptions = useMemo(() => ({
+    'elk.algorithm':           'layered',
+    'elk.direction':           'DOWN',
+    'elk.spacing.nodeNode':    75,
+    'elk.layered.spacing.nodeNodeBetweenLayers': 100,
+    'elk.layered.considerModelOrder.strategy':   'NODES_AND_EDGES',
+  }), [
+    props.args.direction,
+    props.args.nodeNodeSpacing,
+    props.args.nodeLayerSpacing
+  ]);
+
+  // generic “run one layout” helper:
+  const performLayoutOnce = useCallback((
+    layoutFn = createElkGraphLayout,
+    options = { elkOptions }
+  ) => {
+    const currentNodes = getNodes();
+    const currentEdges = getEdges();
+
+    layoutFn(currentNodes, currentEdges, options)
+      .then(({ nodes: newNodes, edges: newEdges }) => {
+        setNodes(newNodes);
+        setEdges(newEdges);
+        setViewFitAfterLayout(false);
+        handleDataReturnToStreamlit(newNodes, newEdges, null);
+        setLayoutCalculated(true);
+      })
+      .catch(err => console.error("layout failed", err));
+  }, [
+    getNodes, getEdges,
+    setNodes, setEdges,
+    setViewFitAfterLayout,
+    handleDataReturnToStreamlit
+  ]);
+
+//   // your existing auto‐layout effect still works:
+//   useEffect(() => {
+//     if (nodesInitialized && !layoutCalculated) {
+//       performLayoutOnce();  // defaults to ELK + your elkOptions
+//     }
+//   }, [nodesInitialized, layoutCalculated, performLayoutOnce]);
+
+
 
 
 
     // Update elements if streamlit sends new arguments - check by comparing timestamp recency
     useEffect(() => {
-        if (lastUpdateTimestamp <= props.args.timestamp)
-        {
+        if (lastUpdateTimestamp <= props.args.timestamp) {
             setLayoutNeedsUpdate(true);
             setNodes(props.args.nodes);
             setEdges(props.args.edges);
             setLastUpdateTimestamp((new Date()).getTime());
-            handleDataReturnToStreamlit(props.args.nodes, props.args.edges, null);
+            const selectedId = 
+                props.args.nodes.find(node => node.selected)?.id || null;
+            handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
         }
 
     }, [props.args.nodes, props.args.edges]);
 
     // Handle layout when streamlit sends new state
     useEffect(() => {
-        if(layoutNeedsUpdate)
-        {
+        if (layoutNeedsUpdate) {
             setLayoutNeedsUpdate(false);
             setLayoutCalculated(false);
         }
@@ -149,8 +205,7 @@ const StreamlitFlowComponent = (props) => {
 
     // Auto zoom callback
     useEffect(() => {
-        if(!viewFitAfterLayout && props.args.fitView)
-        {
+        if (!viewFitAfterLayout && props.args.fitView) {
             fitView();
             setViewFitAfterLayout(true);
         }
@@ -158,11 +213,11 @@ const StreamlitFlowComponent = (props) => {
 
     // Theme callback
     useEffect(() => {
-        setEdges(edges.map(edge => ({...edge, labelStyle:{'fill': props.theme.base === "dark" ? 'white' : 'black'}})))
+        setEdges(edges.map(edge => ({ ...edge, labelStyle: { 'fill': props.theme.base === "dark" ? 'white' : 'black' } })))
     }, [props.theme.base])
 
     // Context Menu Callbacks
-    
+
     const handlePaneContextMenu = (event) => {
         event.preventDefault();
 
@@ -204,16 +259,51 @@ const StreamlitFlowComponent = (props) => {
 
     // Flow interaction callbacks
 
-    const handlePaneClick = (event) => {
-        clearMenus();
-        handleDataReturnToStreamlit(nodes, edges, null);
-    }
+    // const handlePaneClick = (event) => {
+    //     clearMenus();
+    //     handleDataReturnToStreamlit(nodes, edges, null);
+    // }
 
-    const handleNodeClick = (event, node) => {
+    const handleNodeClick = useCallback((event, node) => {
         clearMenus();
-        if (props.args.getNodeOnClick)
-            handleDataReturnToStreamlit(nodes, edges, node.id);
-    }
+        // if Shift is down, show htmlPopup and bail out
+        if (event.shiftKey) {
+            console.log(node.id)
+            if (!node.id.startsWith('output-')) {
+                setHtmlPopup(node.data.html);
+            } else {
+                const origin = nodes.find(n => n.id === node.id.replace('output-', ''));
+                if (origin) {
+                    origin.data = { ...origin.data, command: 'inspect' };
+                    const updatedNodes = nodes.map(n => n.id === origin.id ? origin : n);
+                    setNodes(updatedNodes);
+                    handleDataReturnToStreamlit(updatedNodes, edges, origin.id,
+                        {
+                            'command': 'inspect',
+                            'id': origin.id,
+                        }
+                    );
+                }
+            }
+        } else {
+            // otherwise fall back to your old behavior
+            if (props.args.getNodeOnClick) {
+               handleDataReturnToStreamlit(nodes, edges, node.id);
+            }
+        }
+      }, [clearMenus, props.args.getNodeOnClick, nodes, edges, handleDataReturnToStreamlit]);
+
+      const handlePaneClick = (event) => {
+        clearMenus();
+        setHtmlPopup(null);           // ← clear the popup
+        handleDataReturnToStreamlit(nodes, edges, null);
+      }
+          
+    // const handleNodeClick = (event, node) => {
+    //     clearMenus();
+    //     if (props.args.getNodeOnClick)
+    //         handleDataReturnToStreamlit(nodes, edges, node.id);
+    // }
 
     const handleEdgeClick = (event, edge) => {
         clearMenus();
@@ -223,15 +313,15 @@ const StreamlitFlowComponent = (props) => {
 
 
     const handleConnect = (params) => {
-        const newEdgeId = `st-flow-edge_${params.source}-${params.target}`; 
-        const newEdges = addEdge({...params, animated:props.args["animateNewEdges"], labelShowBg:false, id: newEdgeId}, edges);
+        const newEdgeId = `st-flow-edge_${params.source}-${params.target}`;
+        const newEdges = addEdge({ ...params, animated: props.args["animateNewEdges"], labelShowBg: false, id: newEdgeId }, edges);
         setEdges(newEdges);
         handleDataReturnToStreamlit(nodes, newEdges, newEdgeId);
     }
 
     const handleNodeDragStop = (event, node) => {
         const updatedNodes = nodes.map(n => {
-            if(n.id === node.id)
+            if (n.id === node.id)
                 return node;
             return n;
         });
@@ -239,52 +329,58 @@ const StreamlitFlowComponent = (props) => {
     }
 
     const isValidConnection = (connection) => {
-            // we are using getNodes and getEdges helpers here
-            // to make sure we create isValidConnection function only once
-            const nodes = getNodes();
-            const edges = getEdges();
-            const target = nodes.find((node) => node.id === connection.target);
-            const hasCycle = (node, visited = new Set()) => {
+        // we are using getNodes and getEdges helpers here
+        // to make sure we create isValidConnection function only once
+        const nodes = getNodes();
+        const edges = getEdges();
+
+        // if edge already exists, don't allow to create it
+        if (edges.some((edge) => edge.source === connection.source && edge.target === connection.target)) {
+            return false;
+        }
+
+        const target = nodes.find((node) => node.id === connection.target);
+        const hasCycle = (node, visited = new Set()) => {
             if (visited.has(node.id)) return false;
-        
+
             visited.add(node.id);
-        
+
             for (const outgoer of getOutgoers(node, nodes, edges)) {
                 if (outgoer.id === connection.source) return true;
                 if (hasCycle(outgoer, visited)) return true;
             }
-            };
-        
-            if (target.id === connection.source) return false;
-            return !hasCycle(target);
-        }
-                
+        };
+
+        if (target.id === connection.source) return false;
+        return !hasCycle(target);
+    }
+
     const onNodesDelete = (deleted) => {
-            setEdges(
+        setEdges(
             deleted.reduce((acc, node) => {
                 const incomers = getIncomers(node, nodes, edges);
                 const outgoers = getOutgoers(node, nodes, edges);
                 const connectedEdges = getConnectedEdges([node], edges);
-        
+
                 const remainingEdges = acc.filter(
-                (edge) => !connectedEdges.includes(edge),
+                    (edge) => !connectedEdges.includes(edge),
                 );
-        
+
                 const createdEdges = incomers.flatMap(({ id: source }) =>
-                outgoers.map(({ id: target }) => ({
-                    id: `${source}->${target}`,
-                    source,
-                    target,
-                })),
+                    outgoers.map(({ id: target }) => ({
+                        id: `${source}->${target}`,
+                        source,
+                        target,
+                    })),
                 );
-        
+
                 return [...remainingEdges, ...createdEdges];
             }, edges),
-            );
-        }    
+        );
+    }
 
     return (
-        <div style={{height: '100vh', width: '100vw'}}>
+        <div style={{ height: '100vh', width: '100vw' }}>
             <ReactFlow
                 nodeTypes={nodeTypes}
                 ref={ref}
@@ -303,51 +399,63 @@ const StreamlitFlowComponent = (props) => {
                 onEdgeClick={handleEdgeClick}
                 onNodeDragStart={clearMenus}
                 onPaneClick={handlePaneClick}
-                onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => {}}
-                onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => {}}
-                onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => {}}
+                onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
+                onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
+                onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
                 panOnDrag={props.args.panOnDrag}
                 zoomOnDoubleClick={props.args.allowZoom}
                 zoomOnScroll={props.args.allowZoom}
                 zoomOnPinch={props.args.allowZoom}
                 minZoom={props.args.minZoom}
-                proOptions={{hideAttribution: props.args.hideWatermark}}>
-                    <Background/>
-                    {paneContextMenu && <PaneConextMenu 
-                                            paneContextMenu={paneContextMenu} 
-                                            setPaneContextMenu={setPaneContextMenu}
-                                            nodes={nodes} 
-                                            edges={edges} 
-                                            setNodes={setNodes} 
-                                            handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                                            setLayoutCalculated={setLayoutCalculated}
-                                            theme={props.theme}
-                                            />
-                    }
-                    {nodeContextMenu && <NodeContextMenu 
-                                            nodeContextMenu={nodeContextMenu} 
-                                            setNodeContextMenu={setNodeContextMenu}
-                                            nodes={nodes}
-                                            edges={edges}
-                                            setNodes={setNodes}
-                                            setEdges={setEdges}
-                                            handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                                            theme={props.theme} 
-                                            />
-                    }
-                    {edgeContextMenu && <EdgeContextMenu 
-                                            edgeContextMenu={edgeContextMenu} 
-                                            setEdgeContextMenu={setEdgeContextMenu} 
-                                            nodes={nodes}
-                                            edges={edges}
-                                            setEdges={setEdges}
-                                            handleDataReturnToStreamlit={handleDataReturnToStreamlit} 
-                                            theme={props.theme}/>}
-                    {props.args["showControls"] && <Controls style={{ top: 50, left: 10, right: 'auto', bottom: 'auto' }}/>}
-                    {props.args["showMiniMap"] && <MiniMap pannable zoomable
-                    style={{ top: 50, left: 'auto', right: 10, bottom: 'auto' }}
-                    />}
-                </ReactFlow>
+                proOptions={{ hideAttribution: props.args.hideWatermark }}>
+                <Background />
+                {paneContextMenu && <PaneConextMenu
+                    paneContextMenu={paneContextMenu}
+                    setPaneContextMenu={setPaneContextMenu}
+                    nodes={nodes}
+                    edges={edges}
+                    setNodes={setNodes}
+                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                    setLayoutCalculated={() => performLayoutOnce(createElkGraphLayout, { elkOptions })}
+                    theme={props.theme}
+                />
+                }
+                {nodeContextMenu && <NodeContextMenu
+                    nodeContextMenu={nodeContextMenu}
+                    setNodeContextMenu={setNodeContextMenu}
+                    nodes={nodes}
+                    edges={edges}
+                    setNodes={setNodes}
+                    setEdges={setEdges}
+                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                    theme={props.theme}
+                />
+                }
+                {edgeContextMenu && <EdgeContextMenu
+                    edgeContextMenu={edgeContextMenu}
+                    setEdgeContextMenu={setEdgeContextMenu}
+                    nodes={nodes}
+                    edges={edges}
+                    setEdges={setEdges}
+                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                    theme={props.theme} />}
+                {props.args["showControls"] && <Controls style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }} />}
+                {props.args["showMiniMap"] && <MiniMap pannable zoomable
+                    style={{ top: 10, left: 'auto', right: 10, bottom: 'auto' }}
+                />}
+            </ReactFlow>
+            {htmlPopup && (
+                <div
+                className="html-popup-overlay"
+                onClick={() => setHtmlPopup(null)}
+                >
+                <div
+                    className="html-popup-content"
+                    dangerouslySetInnerHTML={{ __html: htmlPopup }}
+                />
+                </div>
+            )}
+
         </div>
     );
 }
@@ -355,7 +463,7 @@ const StreamlitFlowComponent = (props) => {
 const ContextualStreamlitFlowComponent = (props) => {
     return (
         <ReactFlowProvider>
-            <StreamlitFlowComponent {...props}/>
+            <StreamlitFlowComponent {...props} />
         </ReactFlowProvider>
     );
 }

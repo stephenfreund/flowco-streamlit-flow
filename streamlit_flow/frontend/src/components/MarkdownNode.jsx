@@ -1,7 +1,7 @@
 // MarkdownFlowNodes.jsx
-import React, { memo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { memo, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { Handle, Position, NodeResizer } from 'reactflow';
+import { Handle, Position, NodeResizer, } from 'reactflow';
 import Markdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -27,14 +27,6 @@ const MemoizedMarkdown = memo(({ content }) => (
     </Markdown>
 ));
 
-function BlinkingWrapper({ blinkText, children }) {
-    return (
-        <div className="markdown-node-wrapper">
-            {blinkText && <div className="blinking-text">{blinkText}</div>}
-            {children}
-        </div>
-    );
-}
 
 function getContent(data) {
     if (data.pill) {
@@ -44,65 +36,24 @@ function getContent(data) {
 }
 
 export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selected }) {
-    const [showPopup, setShowPopup] = useState(false);
-    const timerRef = useRef(null);
-    const mouseInRef = useRef(false);
+    // const [showPopup, setShowPopup] = useState(false);
     const srcPos = sourcePosition && handlePosMap[sourcePosition];
     const tgtPos = targetPosition && handlePosMap[targetPosition];
 
-    const onMouseEnter = useCallback(() => {
-        console.log('mouse enter');
-        mouseInRef.current = true;
-        timerRef.current = window.setTimeout(() => {
-            console.log('show popup');
-            if (mouseInRef.current) {
-                setShowPopup(true);
-            }
-        timerRef.current = null;
-        }, 500);
-    }, []);
+    // // 1) Shift‑click to show, 2) any click while visible hides
+    // const onContainerClick = useCallback(
+    //     (e) => {
+    //         if (!data['html']) {
+    //             data['command'] = 'inspect';
+    //         } else if (showPopup) {
+    //             setShowPopup(false);
+    //         } else if (e.shiftKey) {
+    //             setShowPopup(true);
+    //         }
+    //     },
+    //     [showPopup]
+    // );
 
-    // Cancel timer if mouse leaves early
-    const onMouseLeave = useCallback(() => {
-        console.log('mouse leave');
-        mouseInRef.current = false;
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-        }
-    }, []);
-
-    // Cancel timer if mouse leaves early
-    const onMouseDown = useCallback(() => {
-        console.log('mouse down');
-        mouseInRef.current = false;
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-        }
-    }, []);
-
-    const onMouseMove = useCallback(() => {
-        console.log('mouse move');
-        if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-            timerRef.current = window.setTimeout(() => {
-                if (mouseInRef.current) {
-                    console.log('show move popup');
-                    setShowPopup(true);
-                }
-                timerRef.current = null;
-            }, 500);
-        }
-    }, []);
-
-    // Cleanup timer on unmount
-    useEffect(() => {
-        return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
-        };
-    }, []);
 
     // Find the React Flow container to portal into
     const flowContainer = document.querySelector("div[id='root']")
@@ -111,44 +62,39 @@ export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selecte
         <>
             <div
                 className="markdown-node-hover-container"
-                onMouseEnter={onMouseEnter}
-                onMouseLeave={onMouseLeave}
-                onMouseMove={onMouseMove}
-                onMouseDownCapture={onMouseDown} 
-                onMouseUpCapture={onMouseDown}
-                >
-                   {data.locked && (
-                     <i
-                       className="bi bi-lock-fill lock-icon"
-                       title="Locked"
-                     />
-                   )}
-                   <NodeResizer
+            >
+                {data.blinkText && (<span className="blinking-text">{data.blinkText}</span>)}
+
+                {data.locked && (
+                    <i
+                        className="bi bi-lock-fill lock-icon"
+                        title="Locked"
+                    />
+                )}
+                <NodeResizer
                     color="#ff0071"
                     isVisible={selected}
                     minWidth={100}
-                    minHeight={30}
+                    minHeight={50}
                 />
 
-                {srcPos && <Handle type="source" position={srcPos}  />}
+                {srcPos && <Handle type="source" position={srcPos} />}
 
-                <BlinkingWrapper blinkText={data.blinkText}>
-                    <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''}`}>
-                        <MemoizedMarkdown content={getContent(data)} />
-                    </div>
-                </BlinkingWrapper>
+                <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''}`}>
+                    <MemoizedMarkdown content={getContent(data)} />
+                </div>
 
-                {tgtPos && <Handle type="target" position={tgtPos}  />}
+                {tgtPos && <Handle type="target" position={tgtPos} />}
             </div>
 
-            {showPopup && flowContainer && ReactDOM.createPortal(
+            {/* {showPopup && flowContainer && ReactDOM.createPortal(
                 <div
                     className="node-popup-overlay"
                     onClick={() => setShowPopup(false)}
                     dangerouslySetInnerHTML={{ __html: data.html }}
                 />,
                 flowContainer
-            )}
+            )} */}
         </>
     );
 }
@@ -157,7 +103,7 @@ export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selecte
 export const MarkdownInputNode = ({ data, selected }) => (
     <MarkdownFlowNode
         data={data}
-        sourcePosition={Position.Right}
+        sourcePosition={Position.Bottom}
         selected={selected}
     />
 );
@@ -166,8 +112,8 @@ export const MarkdownInputNode = ({ data, selected }) => (
 export const MarkdownDefaultNode = ({ data, selected }) => (
     <MarkdownFlowNode
         data={data}
-        sourcePosition={Position.Right}
-        targetPosition={Position.Left}
+        sourcePosition={Position.Bottom}
+        targetPosition={Position.Top}
         selected={selected}
     />
 );

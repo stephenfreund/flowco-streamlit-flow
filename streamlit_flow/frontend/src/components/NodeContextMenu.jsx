@@ -82,11 +82,10 @@ const NodeContextMenu = ({ nodeContextMenu, nodes, edges, setNodeContextMenu, se
 
     function handleCommand(cmd) {
         return (e) => {
-            const editedNode = nodeContextMenu.node;
-            editedNode.data = { ...editedNode.data, command: cmd };
-            const updatedNodes = nodes.map(n => n.id === editedNode.id ? editedNode : n);
-            setNodes(updatedNodes);
-            handleDataReturnToStreamlit(updatedNodes, edges, null);
+            handleDataReturnToStreamlit(nodes, edges, null, {
+                'command': cmd,
+                'id': nodeContextMenu.node.id,
+            });
             setNodeContextMenu(null);
         }
     }
