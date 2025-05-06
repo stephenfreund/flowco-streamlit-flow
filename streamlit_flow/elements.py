@@ -177,6 +177,8 @@ class StreamlitFlowEdge:
         id: str,
         source: str,
         target: str,
+        source_handle: str = "source",
+        target_handle: str = "target",
         edge_type: Literal[
             "default", "straight", "step", "smoothstep", "simplebezier"
         ] = "default",
@@ -199,6 +201,8 @@ class StreamlitFlowEdge:
         self.id = id
         self.source = source
         self.target = target
+        self.source_handle = source_handle
+        self.target_handle = target_handle
         self.type = edge_type
         self.marker_start = marker_start
         self.marker_end = marker_end
@@ -227,6 +231,8 @@ class StreamlitFlowEdge:
             id=edge_dict.get("id", ""),
             source=edge_dict.get("source", ""),
             target=edge_dict.get("target", ""),
+            source_handle=edge_dict.get("sourceHandle", "source"),
+            target_handle=edge_dict.get("targetHandle", "target"),
             edge_type=edge_dict.get("type", "default"),
             marker_start=edge_dict.get("markerStart", {}),
             marker_end=edge_dict.get("markerEnd", {}),
@@ -257,6 +263,8 @@ class StreamlitFlowEdge:
             "id": self.id,
             "source": self.source,
             "target": self.target,
+            "sourceHandle": self.source_handle,
+            "targetHandle": self.target_handle,
             "type": self.type,
             "markerStart": self.marker_start,
             "markerEnd": self.marker_end,

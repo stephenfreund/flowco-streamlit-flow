@@ -4,10 +4,10 @@ import {
     Streamlit,
 } from "streamlit-component-lib"
 
-import 
-     isEqual from "lodash";
+import
+isEqual from "lodash";
 
-     import differenceWith from "lodash"; 
+import differenceWith from "lodash";
 
 import ReactFlow, {
     Controls,
@@ -40,15 +40,15 @@ import createElkGraphLayout from "./layouts/ElkLayout";
 
 function arraysAreEqual(arr1, arr2) {
     return isEqual.isEqual(arr1, arr2);
-  }
-  
-  const StreamlitFlowComponent = (props) => {
+}
+
+const StreamlitFlowComponent = (props) => {
 
     const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode }), []);
 
     const [viewFitAfterLayout, setViewFitAfterLayout] = useState(null);
     const [nodes, setNodes, onNodesChangeRaw] = useNodesState(props.args.nodes);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(props.args.edges);
+    const [edges, setEdges, onEdgesChangeRaw] = useEdgesState(props.args.edges);
     const [lastUpdateTimestamp, setLastUpdateTimestamp] = useState(props.args.timestamp);
     const [layoutNeedsUpdate, setLayoutNeedsUpdate] = useState(false);
 
@@ -90,12 +90,17 @@ function arraysAreEqual(arr1, arr2) {
 
     // wrap onNodesChange so we can catch resize events
     const onNodesChange = useCallback((changes) => {
-        console.log('onNodesChange', changes);
         onNodesChangeRaw(changes);
-        if (changes.length === 1 && changes[0].type === 'dimensions') {
+        if (changes.length === 1 && changes[0].type === 'dimensions' && !changes[0].resizing) {
             handleDataReturnToStreamlit(getNodes(), getEdges(), changes[0].id);
         }
     }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
+
+    // wrap onNodesChange so we can catch resize events
+    const onEdgesChange = useCallback((changes) => {
+        onEdgesChangeRaw(changes);
+        handleDataReturnToStreamlit(getNodes(), getEdges(), null);
+    }, [onEdgesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
 
 
     const calculateMenuPosition = (event) => {
@@ -194,7 +199,7 @@ function arraysAreEqual(arr1, arr2) {
                 const selectedId =
                     props.args.nodes.find(node => node.selected)?.id || null;
                 handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
-            }            
+            }
         }
 
     }, [props.args.nodes, props.args.edges]);

@@ -1,7 +1,6 @@
 // MarkdownFlowNodes.jsx
-import React, { memo, useState, useCallback } from 'react';
-import ReactDOM from 'react-dom';
-import { Handle, Position, NodeResizer, } from 'reactflow';
+import React, { memo } from 'react';
+import { Handle, Position, NodeResizer } from 'reactflow';
 import Markdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -11,118 +10,89 @@ import remarkMath from 'remark-math';
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github.css';
 
-const handlePosMap = {
-    top: Position.Top,
-    right: Position.Right,
-    bottom: Position.Bottom,
-    left: Position.Left,
-};
-
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeHighlight, rehypeRaw, rehypeKatex];
 
 const MemoizedMarkdown = memo(({ content }) => (
-    <Markdown rehypePlugins={rehypePlugins} remarkPlugins={remarkPlugins}>
-        {content}
-    </Markdown>
+  <Markdown rehypePlugins={rehypePlugins} remarkPlugins={remarkPlugins}>
+    {content}
+  </Markdown>
 ));
 
-
 function getContent(data) {
-    if (data.pill) {
-        return `###### ${data.pill}\n\n${data.content}`;
-    }
-    return data.content;
+  if (data.pill) {
+    return `###### ${data.pill}\n\n${data.content}`;
+  }
+  return data.content;
 }
 
 export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selected }) {
-    // const [showPopup, setShowPopup] = useState(false);
-    const srcPos = sourcePosition && handlePosMap[sourcePosition];
-    const tgtPos = targetPosition && handlePosMap[targetPosition];
+  const srcPos = sourcePosition;
+  const tgtPos = targetPosition;
 
-    // // 1) Shift‑click to show, 2) any click while visible hides
-    // const onContainerClick = useCallback(
-    //     (e) => {
-    //         if (!data['html']) {
-    //             data['command'] = 'inspect';
-    //         } else if (showPopup) {
-    //             setShowPopup(false);
-    //         } else if (e.shiftKey) {
-    //             setShowPopup(true);
-    //         }
-    //     },
-    //     [showPopup]
-    // );
+  return (
+    <>
+      <div className="markdown-node-hover-container">
+        {data.blinkText && <span className="blinking-text">{data.blinkText}</span>}
 
+        {data.locked && (
+          <i className="bi bi-lock-fill lock-icon" title="Locked" />
+        )}
 
-    // Find the React Flow container to portal into
-    const flowContainer = document.querySelector("div[id='root']")
+        <NodeResizer
+          color="#ff0071"
+          isVisible={selected}
+          minWidth={100}
+          minHeight={50}
+        />
 
-    return (
-        <>
-            <div
-                className="markdown-node-hover-container"
-            >
-                {data.blinkText && (<span className="blinking-text">{data.blinkText}</span>)}
+        {/* Source handle */}
+        {srcPos && <Handle type="source" position={srcPos} id="source" />}
 
-                {data.locked && (
-                    <i
-                        className="bi bi-lock-fill lock-icon"
-                        title="Locked"
-                    />
-                )}
-                <NodeResizer
-                    color="#ff0071"
-                    isVisible={selected}
-                    minWidth={100}
-                    minHeight={50}
-                />
+        {/* Target handle */}
+        {tgtPos === Position.Top && <Handle type="target" position={tgtPos} id="target" />}
+        {tgtPos === Position.Left && <Handle type="target" position={tgtPos} id="target" className="output-handle" />}
 
-                {srcPos && <Handle type="source" position={srcPos} />}
+        {/* Output handle on right with distinct style */}
+        <Handle
+          type="source"
+          position={Position.Right}
+          id="output"
+          className="output-handle"
+        />
 
-                <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''}`}>
-                    <MemoizedMarkdown content={getContent(data)} />
-                </div>
-
-                {tgtPos && <Handle type="target" position={tgtPos} />}
-            </div>
-
-            {/* {showPopup && flowContainer && ReactDOM.createPortal(
-                <div
-                    className="node-popup-overlay"
-                    onClick={() => setShowPopup(false)}
-                    dangerouslySetInnerHTML={{ __html: data.html }}
-                />,
-                flowContainer
-            )} */}
-        </>
-    );
+        <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''}`}>
+          <MemoizedMarkdown content={getContent(data)} />
+        </div>
+      </div>
+    </>
+  );
 }
 
-// Input node: only source handle
+// Input node: only source handle and output
 export const MarkdownInputNode = ({ data, selected }) => (
-    <MarkdownFlowNode
-        data={data}
-        sourcePosition={Position.Bottom}
-        selected={selected}
-    />
+  <MarkdownFlowNode
+    data={data}
+    sourcePosition={Position.Bottom}
+    selected={selected}
+  />
 );
 
-// Default node: both handles
+// Default node: both handles and output
 export const MarkdownDefaultNode = ({ data, selected }) => (
-    <MarkdownFlowNode
-        data={data}
-        sourcePosition={Position.Bottom}
-        targetPosition={Position.Top}
-        selected={selected}
-    />
+  <MarkdownFlowNode
+    data={data}
+    sourcePosition={Position.Bottom}
+    targetPosition={Position.Top}
+    selected={selected}
+  />
 );
 
-// Output node: only target handle
+// Output node: only target and output
 export const MarkdownOutputNode = ({ data, selected }) => (
-    <MarkdownFlowNode
-        data={data}
-        targetPosition={Position.Left}
-        selected={selected}
-    />
+  <MarkdownFlowNode
+    data={data}
+    targetPosition={Position.Left}
+    selected={selected}
+  />
 );
