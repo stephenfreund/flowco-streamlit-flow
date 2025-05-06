@@ -65,7 +65,6 @@ def streamlit_flow(
     - **enable_edge_menu** : bool : Whether to enable the edge menu.
     - **hide_watermark** : bool : Whether to hide the watermark.
     """
-
     nodes = [node.asdict() for node in state.nodes]
     edges = [edge.asdict() for edge in state.edges]
 

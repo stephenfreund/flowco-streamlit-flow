@@ -18,7 +18,13 @@ const EditNodeModal = ({ show, node, handleClose, theme, setNodeContextMenu, set
     }
 
     const onPillContentChange = (e) => {
-        setEditedNode((editedNode) => ({ ...editedNode, data: { ...editedNode.data, pill: e.target.value } }));
+        const pill = 
+            e.target.value
+                .replace(/[^a-zA-Z0-9]/g, '-')
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join('-');
+        setEditedNode((editedNode) => ({ ...editedNode, data: { ...editedNode.data, pill: pill } }));
     };
 
     const onNodeContentChange = (e) => {
@@ -117,7 +123,10 @@ const NodeContextMenu = ({ nodeContextMenu, nodes, edges, setNodeContextMenu, se
             }}>
                 {(!showModal && !modalClosing) && <ButtonGroup vertical>
                     <Button variant="outline-primary" onClick={handleEditNode} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Quick Edit</Button>
-                    <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Edit</Button>
+
+                    { nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Edit</Button>}
+                    { !nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-arrow-clockwise"></i> Update</Button>}
+
                     { !nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("lock")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-lock"></i> Lock</Button> }
                     { nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("unlock")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-unlock"></i> Unlock</Button> }                    
                     <span className="btn-divider" />

@@ -1,7 +1,13 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
+
 import {
     Streamlit,
 } from "streamlit-component-lib"
+
+import 
+     isEqual from "lodash";
+
+     import differenceWith from "lodash"; 
 
 import ReactFlow, {
     Controls,
@@ -31,7 +37,12 @@ import EdgeContextMenu from "./components/EdgeContextMenu";
 
 import createElkGraphLayout from "./layouts/ElkLayout";
 
-const StreamlitFlowComponent = (props) => {
+
+function arraysAreEqual(arr1, arr2) {
+    return isEqual.isEqual(arr1, arr2);
+  }
+  
+  const StreamlitFlowComponent = (props) => {
 
     const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode }), []);
 
@@ -84,8 +95,8 @@ const StreamlitFlowComponent = (props) => {
         if (changes.length === 1 && changes[0].type === 'dimensions') {
             handleDataReturnToStreamlit(getNodes(), getEdges(), changes[0].id);
         }
-     }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
-        
+    }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
+
 
     const calculateMenuPosition = (event) => {
         const pane = ref.current.getBoundingClientRect();
@@ -131,66 +142,59 @@ const StreamlitFlowComponent = (props) => {
 
     useEffect(() => Streamlit.setFrameHeight());
 
-    
-
-  // build the exact ELK settings you listed
-  const elkOptions = useMemo(() => ({
-    'elk.algorithm':           'layered',
-    'elk.direction':           'DOWN',
-    'elk.spacing.nodeNode':    75,
-    'elk.layered.spacing.nodeNodeBetweenLayers': 100,
-    'elk.layered.considerModelOrder.strategy':   'NODES_AND_EDGES',
-  }), [
-    props.args.direction,
-    props.args.nodeNodeSpacing,
-    props.args.nodeLayerSpacing
-  ]);
-
-  // generic “run one layout” helper:
-  const performLayoutOnce = useCallback((
-    layoutFn = createElkGraphLayout,
-    options = { elkOptions }
-  ) => {
-    const currentNodes = getNodes();
-    const currentEdges = getEdges();
-
-    layoutFn(currentNodes, currentEdges, options)
-      .then(({ nodes: newNodes, edges: newEdges }) => {
-        setNodes(newNodes);
-        setEdges(newEdges);
-        setViewFitAfterLayout(false);
-        handleDataReturnToStreamlit(newNodes, newEdges, null);
-        setLayoutCalculated(true);
-      })
-      .catch(err => console.error("layout failed", err));
-  }, [
-    getNodes, getEdges,
-    setNodes, setEdges,
-    setViewFitAfterLayout,
-    handleDataReturnToStreamlit
-  ]);
-
-//   // your existing auto‐layout effect still works:
-//   useEffect(() => {
-//     if (nodesInitialized && !layoutCalculated) {
-//       performLayoutOnce();  // defaults to ELK + your elkOptions
-//     }
-//   }, [nodesInitialized, layoutCalculated, performLayoutOnce]);
 
 
+    // build the exact ELK settings you listed
+    const elkOptions = useMemo(() => ({
+        'elk.algorithm': 'layered',
+        'elk.direction': 'DOWN',
+        'elk.spacing.nodeNode': 75,
+        'elk.layered.spacing.nodeNodeBetweenLayers': 100,
+        'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+    }), [
+        props.args.direction,
+        props.args.nodeNodeSpacing,
+        props.args.nodeLayerSpacing
+    ]);
+
+    // generic “run one layout” helper:
+    const performLayoutOnce = useCallback((
+        layoutFn = createElkGraphLayout,
+        options = { elkOptions }
+    ) => {
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+
+        layoutFn(currentNodes, currentEdges, options)
+            .then(({ nodes: newNodes, edges: newEdges }) => {
+                setNodes(newNodes);
+                setEdges(newEdges);
+                setViewFitAfterLayout(false);
+                handleDataReturnToStreamlit(newNodes, newEdges, null);
+                setLayoutCalculated(true);
+            })
+            .catch(err => console.error("layout failed", err));
+    }, [
+        getNodes, getEdges,
+        setNodes, setEdges,
+        setViewFitAfterLayout,
+        handleDataReturnToStreamlit
+    ]);
 
 
 
     // Update elements if streamlit sends new arguments - check by comparing timestamp recency
     useEffect(() => {
         if (lastUpdateTimestamp <= props.args.timestamp) {
-            setLayoutNeedsUpdate(true);
-            setNodes(props.args.nodes);
-            setEdges(props.args.edges);
-            setLastUpdateTimestamp((new Date()).getTime());
-            const selectedId = 
-                props.args.nodes.find(node => node.selected)?.id || null;
-            handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
+            if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
+                setLayoutNeedsUpdate(true);
+                setLastUpdateTimestamp((new Date()).getTime());
+                setNodes(props.args.nodes);
+                setEdges(props.args.edges);
+                const selectedId =
+                    props.args.nodes.find(node => node.selected)?.id || null;
+                handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
+            }            
         }
 
     }, [props.args.nodes, props.args.edges]);
@@ -288,17 +292,17 @@ const StreamlitFlowComponent = (props) => {
         } else {
             // otherwise fall back to your old behavior
             if (props.args.getNodeOnClick) {
-               handleDataReturnToStreamlit(nodes, edges, node.id);
+                handleDataReturnToStreamlit(nodes, edges, node.id);
             }
         }
-      }, [clearMenus, props.args.getNodeOnClick, nodes, edges, handleDataReturnToStreamlit]);
+    }, [clearMenus, props.args.getNodeOnClick, nodes, edges, handleDataReturnToStreamlit]);
 
-      const handlePaneClick = (event) => {
+    const handlePaneClick = (event) => {
         clearMenus();
         setHtmlPopup(null);           // ← clear the popup
         handleDataReturnToStreamlit(nodes, edges, null);
-      }
-          
+    }
+
     // const handleNodeClick = (event, node) => {
     //     clearMenus();
     //     if (props.args.getNodeOnClick)
@@ -446,13 +450,13 @@ const StreamlitFlowComponent = (props) => {
             </ReactFlow>
             {htmlPopup && (
                 <div
-                className="html-popup-overlay"
-                onClick={() => setHtmlPopup(null)}
+                    className="html-popup-overlay"
+                    onClick={() => setHtmlPopup(null)}
                 >
-                <div
-                    className="html-popup-content"
-                    dangerouslySetInnerHTML={{ __html: htmlPopup }}
-                />
+                    <div
+                        className="html-popup-content"
+                        dangerouslySetInnerHTML={{ __html: htmlPopup }}
+                    />
                 </div>
             )}
 

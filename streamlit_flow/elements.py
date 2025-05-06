@@ -1,9 +1,12 @@
 from typing import Dict, Tuple, Union, Type, TypeVar, Literal
 
+from dataclasses import dataclass
+
 T_StreamlitFlowNode = TypeVar("T_StreamlitFlowNode", bound="StreamlitFlowNode")
 T_StreamlitFlowEdge = TypeVar("T_StreamlitFlowEdge", bound="StreamlitFlowEdge")
 
 
+@dataclass
 class StreamlitFlowNode:
     """
     Represents a node in streamlit_flow
@@ -32,6 +35,8 @@ class StreamlitFlowNode:
         self,
         id: str,
         pos: Tuple[float, float],
+        width: float,
+        height: float,
         data: Dict[str, any],
         node_type: Literal["default", "input", "output"] = "default",
         source_position: Literal["bottom", "top", "left", "right"] = "bottom",
@@ -49,7 +54,7 @@ class StreamlitFlowNode:
         style: Dict[str, any] = {},
         **kwargs,
     ) -> None:
-
+        print(style)
         if "width" not in style:
             style["width"] = "auto"
         if "height" not in style:
@@ -57,6 +62,8 @@ class StreamlitFlowNode:
 
         self.id = id
         self.position = {"x": pos[0], "y": pos[1]}
+        self.width = width
+        self.height = height
         self.data = data
         self.type = node_type
         self.hidden = hidden
@@ -89,6 +96,8 @@ class StreamlitFlowNode:
         return cls(
             id=node_dict.get("id", ""),
             pos=(node_dict["position"].get("x", 0), node_dict["position"].get("y", 0)),
+            width=node_dict.get("width", 0),
+            height=node_dict.get("height", 0),
             data=node_dict.get("data", {}),
             node_type=node_dict.get("type", "default"),
             hidden=node_dict.get("hidden", False),
@@ -115,6 +124,8 @@ class StreamlitFlowNode:
         node_dict = {
             "id": self.id,
             "position": self.position,
+            "width": self.width,
+            "height": self.height,
             "data": self.data,
             "type": self.type,
             "hidden": self.hidden,
@@ -136,6 +147,7 @@ class StreamlitFlowNode:
         return f"StreamlitFlowNode({self.id}, ({round(self.position['x'], 2)}, {round(self.position['y'],2)}), '{self.data.get('content', '')}')"
 
 
+@dataclass
 class StreamlitFlowEdge:
     """
     Represents an edge in streamlit_flow

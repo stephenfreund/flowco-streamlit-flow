@@ -168,7 +168,7 @@ const CreateNodeModal = ({show, handleClose, nodes, edges, theme, setPaneContext
     );
 }
 
-const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, layoutOptions, setNodes, handleDataReturnToStreamlit, setLayoutCalculated, theme}) => {
+const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setNodes, handleDataReturnToStreamlit, setLayoutCalculated, theme}) => {
     
     const [showModal, setShowModal] = useState(false);
     const [modalClosing, setModalClosing] = useState(false);
@@ -177,10 +177,13 @@ const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, layo
         setShowModal(false);
         setModalClosing(true);
     };
-    const handleShow = () => setShowModal(true);
 
     const handleAddNode = (e) => {
-        handleShow();
+        handleClose()
+        handleDataReturnToStreamlit(nodes, edges, null, {
+            'command': 'new_node',
+            'position': paneContextMenu.clickPos
+        });
     };
 
     const handleLayoutReset = (e) => {
