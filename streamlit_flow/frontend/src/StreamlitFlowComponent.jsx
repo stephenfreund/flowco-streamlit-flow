@@ -9,8 +9,12 @@ isEqual from "lodash";
 
 import differenceWith from "lodash";
 
+import { MagicWandIcon } from '@radix-ui/react-icons'
+
+import { toPng } from 'html-to-image';
 import ReactFlow, {
     Controls,
+    ControlButton,
     Background,
     MiniMap,
     getOutgoers,
@@ -22,6 +26,8 @@ import ReactFlow, {
     ReactFlowProvider,
     useNodesInitialized,
     useReactFlow,
+    getNodesBounds,
+    getViewportForBounds,
 } from 'reactflow';
 
 import 'reactflow/dist/style.css';
@@ -36,7 +42,7 @@ import NodeContextMenu from "./components/NodeContextMenu";
 import EdgeContextMenu from "./components/EdgeContextMenu";
 
 import createElkGraphLayout from "./layouts/ElkLayout";
-
+import { DrawingOverlay } from "./components/DrawingOverlay";
 
 function arraysAreEqual(arr1, arr2) {
     return isEqual.isEqual(arr1, arr2);
@@ -388,83 +394,182 @@ const StreamlitFlowComponent = (props) => {
         );
     }
 
-    return (
-        <div style={{ height: '100vh', width: '100vw' }}>
-            <ReactFlow
-                nodeTypes={nodeTypes}
-                ref={ref}
-                nodes={nodes}
-                onNodesChange={onNodesChange}
-                onNodeDragStop={handleNodeDragStop}
-                edges={edges}
-                onEdgesChange={onEdgesChange}
-                onConnect={props.args.allowNewEdges ? handleConnect : null}
-                isValidConnection={isValidConnection}
-                fitView={props.args.fitView}
-                style={props.args.style}
-                onNodeClick={handleNodeClick}
-                onNodeDoubleClick={handleNodeContextMenu}
-                onNodesDelete={onNodesDelete}
-                onEdgeClick={handleEdgeClick}
-                onNodeDragStart={clearMenus}
-                onPaneClick={handlePaneClick}
-                onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
-                onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
-                onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
-                panOnDrag={props.args.panOnDrag}
-                zoomOnDoubleClick={props.args.allowZoom}
-                zoomOnScroll={props.args.allowZoom}
-                zoomOnPinch={props.args.allowZoom}
-                minZoom={props.args.minZoom}
-                proOptions={{ hideAttribution: props.args.hideWatermark }}>
-                <Background />
-                {paneContextMenu && <PaneConextMenu
-                    paneContextMenu={paneContextMenu}
-                    setPaneContextMenu={setPaneContextMenu}
-                    nodes={nodes}
-                    edges={edges}
-                    setNodes={setNodes}
-                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                    setLayoutCalculated={() => performLayoutOnce(createElkGraphLayout, { elkOptions })}
-                    theme={props.theme}
-                />
-                }
-                {nodeContextMenu && <NodeContextMenu
-                    nodeContextMenu={nodeContextMenu}
-                    setNodeContextMenu={setNodeContextMenu}
-                    nodes={nodes}
-                    edges={edges}
-                    setNodes={setNodes}
-                    setEdges={setEdges}
-                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                    theme={props.theme}
-                />
-                }
-                {edgeContextMenu && <EdgeContextMenu
-                    edgeContextMenu={edgeContextMenu}
-                    setEdgeContextMenu={setEdgeContextMenu}
-                    nodes={nodes}
-                    edges={edges}
-                    setEdges={setEdges}
-                    handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                    theme={props.theme} />}
-                {props.args["showControls"] && <Controls style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }} />}
-                {props.args["showMiniMap"] && <MiniMap pannable zoomable
-                    style={{ top: 10, left: 'auto', right: 10, bottom: 'auto' }}
-                />}
-            </ReactFlow>
-            {htmlPopup && (
-                <div
-                    className="html-popup-overlay"
-                    onClick={() => setHtmlPopup(null)}
-                >
-                    <div
-                        className="html-popup-content"
-                        dangerouslySetInnerHTML={{ __html: htmlPopup }}
-                    />
-                </div>
-            )}
+    const overlayRef = useRef(null);
+    const wrapperRef = useRef(null)
 
+    const handleSave = async () => {
+        const imageWidth = 1024;
+        const imageHeight = 768;
+        // 1) figure out the viewport transform you want
+        const nodes = getNodes()
+        const nodesBounds = getNodesBounds(nodes)
+
+        // 2) ask overlay where the ink lives
+        const drawBounds = overlayRef.current.getDrawingBounds();
+
+        // 3) if there is ink, union the rectangles:
+        const unionBounds = drawBounds
+            ? {
+                x: Math.min(nodesBounds.x, drawBounds.x),
+                y: Math.min(nodesBounds.y, drawBounds.y),
+                width: Math.max(
+                    nodesBounds.x + nodesBounds.width,
+                    drawBounds.x + drawBounds.width
+                ) - Math.min(nodesBounds.x, drawBounds.x),
+                height: Math.max(
+                    nodesBounds.y + nodesBounds.height,
+                    drawBounds.y + drawBounds.height
+                ) - Math.min(nodesBounds.y, drawBounds.y),
+            }
+            : nodesBounds;
+
+
+
+        const vp = getViewportForBounds(unionBounds, imageWidth, imageHeight) // 0.5, 2)
+        // 2) snapshot the *entire* wrapper at that transform
+        const dataUrl = await toPng(wrapperRef.current, {
+            width: imageWidth,
+            height: imageHeight,
+            backgroundColor: '#fff',
+            style: {
+                transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+                transformOrigin: 'top left',
+                width: imageWidth,
+                height: imageHeight,
+            },
+            filter: (node) => {
+                if (!node.classList) return true
+                const cls = node.classList
+                if (
+                    cls.contains('react-flow__minimap') ||  // hide MiniMap
+                    cls.contains('react-flow__controls') ||  // hide Controls
+                    cls.contains('react-flow__background')   // hide grid dots
+                ) {
+                    return false
+                }
+                return true
+            }
+
+        })
+        console.log(dataUrl)  // this PNG now has both your Flow and the overlay
+        handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
+    }
+
+    // const handleSave = () => {
+    //     // grab the PNG data URL:
+    //     const dataURL = overlayRef.current.getDataURL();
+    //     console.log(dataURL);
+
+    //     const nodesBounds = getNodesBounds(getNodes());
+    //     const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
+
+    //     toPng(document.querySelector('.react-flow__viewport'), {
+    //         backgroundColor: '#FFFFFF',
+    //         width: imageWidth,
+    //         height: imageHeight,
+    //         style: {
+    //             width: imageWidth,
+    //             height: imageHeight,
+    //             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+    //         },
+    //     }).then((dataUrl) => {
+    //         console.log("PNG data URL:", dataUrl);
+    //         console.log(dataUrl);
+    //     })
+    // }
+
+
+    const handleClear = () => {
+        overlayRef.current.clear();
+    };
+
+    const grabOverlay = () => {
+        handleSave();
+    }
+
+    return (
+        <div ref={wrapperRef} style={{ height: '100vh', width: '100vw' }}>
+            <DrawingOverlay ref={overlayRef} penColor="red" lineWidth={1}>
+                <ReactFlow
+                    nodeTypes={nodeTypes}
+                    ref={ref}
+                    nodes={nodes}
+                    onNodesChange={onNodesChange}
+                    onNodeDragStop={handleNodeDragStop}
+                    edges={edges}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={props.args.allowNewEdges ? handleConnect : null}
+                    isValidConnection={isValidConnection}
+                    fitView={props.args.fitView}
+                    style={props.args.style}
+                    onNodeClick={handleNodeClick}
+                    onNodeDoubleClick={handleNodeContextMenu}
+                    onNodesDelete={onNodesDelete}
+                    onEdgeClick={handleEdgeClick}
+                    onNodeDragStart={clearMenus}
+                    onPaneClick={handlePaneClick}
+                    onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
+                    onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
+                    onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
+                    panOnDrag={props.args.panOnDrag}
+                    zoomOnDoubleClick={props.args.allowZoom}
+                    zoomOnScroll={props.args.allowZoom}
+                    zoomOnPinch={props.args.allowZoom}
+                    minZoom={props.args.minZoom}
+                    proOptions={{ hideAttribution: props.args.hideWatermark }}>
+                    <Background />
+                    {paneContextMenu && <PaneConextMenu
+                        paneContextMenu={paneContextMenu}
+                        setPaneContextMenu={setPaneContextMenu}
+                        nodes={nodes}
+                        edges={edges}
+                        setNodes={setNodes}
+                        handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                        setLayoutCalculated={() => performLayoutOnce(createElkGraphLayout, { elkOptions })}
+                        theme={props.theme}
+                    />
+                    }
+                    {nodeContextMenu && <NodeContextMenu
+                        nodeContextMenu={nodeContextMenu}
+                        setNodeContextMenu={setNodeContextMenu}
+                        nodes={nodes}
+                        edges={edges}
+                        setNodes={setNodes}
+                        setEdges={setEdges}
+                        handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                        theme={props.theme}
+                    />
+                    }
+                    {edgeContextMenu && <EdgeContextMenu
+                        edgeContextMenu={edgeContextMenu}
+                        setEdgeContextMenu={setEdgeContextMenu}
+                        nodes={nodes}
+                        edges={edges}
+                        setEdges={setEdges}
+                        handleDataReturnToStreamlit={handleDataReturnToStreamlit}
+                        theme={props.theme} />}
+                    {props.args["showControls"] && <Controls style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
+                        <ControlButton onClick={grabOverlay} title="Save as PNG">
+                            <MagicWandIcon />
+                        </ControlButton>
+
+                    </Controls>}
+                    {props.args["showMiniMap"] && <MiniMap pannable zoomable
+                        style={{ top: 10, left: 'auto', right: 10, bottom: 'auto' }}
+                    />}
+                </ReactFlow>
+                {htmlPopup && (
+                    <div
+                        className="html-popup-overlay"
+                        onClick={() => setHtmlPopup(null)}
+                    >
+                        <div
+                            className="html-popup-content"
+                            dangerouslySetInnerHTML={{ __html: htmlPopup }}
+                        />
+                    </div>
+                )}
+            </DrawingOverlay>
         </div>
     );
 }
