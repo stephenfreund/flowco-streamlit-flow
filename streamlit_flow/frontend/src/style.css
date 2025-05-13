@@ -177,7 +177,7 @@ table img {
   font-size: 0.75em;
   animation: pulse-animation 1.5s ease-in-out infinite;
   pointer-events: none;
-  /* so it doesn’t block connections */
+  /* so it doesn't block connections */
   font-family: "Source Sans Pro", Arial, Helvetica, sans-serif;
   font-weight: 400;
 }
@@ -314,18 +314,18 @@ table img {
 .codehilite .linenos,
 .codehilite .linenodiv {
   color: #a3a8b8;
-  /* was “fadedText40” or something similar */
+  /* was "fadedText40" or something similar */
   text-align: right;
   padding-right: 0.75rem;
   user-select: none;
 }
 
-/* If you inject each line number with a class like “.linenumber” */
+/* If you inject each line number with a class like ".linenumber" */
 .codehilite .linenumber {
   color: #a3a8b8;
   align-self: center;
   min-width: 2.5rem !important;
-  /* approximate “theme.spacing.threeXL” */
+  /* approximate "theme.spacing.threeXL" */
   display: inline-block;
 }
 
@@ -341,7 +341,7 @@ table img {
 
 /* -----------------------------------------------------------
        Comments, docstrings, etc. 
-       (Pygments commonly uses the “.c” family)
+       (Pygments commonly uses the "c" family)
        ----------------------------------------------------------- */
 .codehilite .c {
   /* generic comment */
@@ -352,7 +352,7 @@ table img {
 
 /* -----------------------------------------------------------
        Punctuation, operators, etc. 
-       Pygments often uses “.p” for punctuation, “.o” for operators
+       Pygments often uses "." for punctuation, "." for operators
        ----------------------------------------------------------- */
 .codehilite .p {
   /* punctuation */
@@ -471,7 +471,7 @@ table img {
        Decorators, at-rules (often appear as .cp or .k in some lexers)
        ----------------------------------------------------------- */
 .codehilite .cp {
-  /* this sometimes is a “comment preproc” color in Pygments */
+  /* this sometimes is a "comment preproc" color in Pygments */
   color: #ed6f13;
   /* orange90 */
   font-weight: normal;
@@ -532,4 +532,25 @@ table img {
   background-color: #fff3cd;
   color: #856404;
   border: 1px solid #ffeeba;
+}
+
+/* Styles for nodes with messages */
+.react-flow__node:has(.has-messages) {
+  border: 2px solid #cc0000;
+}
+
+
+.stop-sign {
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  transform: translate(50%, -50%);
+  opacity: 0.2;
+  color: #cc0000;
+  font-size: 4rem;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

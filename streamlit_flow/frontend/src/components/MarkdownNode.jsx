@@ -32,7 +32,7 @@ export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selecte
 
   return (
     <>
-      <div className="markdown-node-hover-container">
+      <div className={` markdown-node-hover-container ${data.has_messages ? 'has-messages' : ''}`}>
         {data.blinkText && <span className="blinking-text">{data.blinkText}</span>}
 
         {data.locked && (
@@ -61,8 +61,13 @@ export function MarkdownFlowNode({ data, sourcePosition, targetPosition, selecte
           className="output-handle"
         />
 
-        <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''}`}>
+        <div className={`markdown-node ${data.kind === 'plot' ? 'markdown-node-plot' : ''} ${data.has_messages ? 'has-messages' : ''}`}>
           <MemoizedMarkdown content={getContent(data)} />
+          {data.has_messages && (
+            <div className="stop-sign">
+              <i className="bi bi-octagon-fill" />
+            </div>
+          )}
         </div>
       </div>
     </>

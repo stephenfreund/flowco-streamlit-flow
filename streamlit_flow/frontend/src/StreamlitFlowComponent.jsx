@@ -156,13 +156,16 @@ const StreamlitFlowComponent = (props) => {
 
 
     // build the exact ELK settings you listed
-    const elkOptions = useMemo(() => ({
-        'elk.algorithm': 'layered',
-        'elk.direction': 'DOWN',
-        'elk.spacing.nodeNode': 75,
-        'elk.layered.spacing.nodeNodeBetweenLayers': 100,
-        'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-    }), [
+    const elkOptions = useMemo(() => (
+        {
+        'elk.algorithm': 'org.eclipse.elk.mrtree',
+        // 'elk.direction': 'DOWN',
+        // 'elk.spacing.nodeNode': 75,
+        // 'elk.layered.spacing.nodeNodeBetweenLayers': 100,
+        // 'elk.'
+        // 'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+    }
+), [
         props.args.direction,
         props.args.nodeNodeSpacing,
         props.args.nodeLayerSpacing
@@ -175,6 +178,8 @@ const StreamlitFlowComponent = (props) => {
     ) => {
         const currentNodes = getNodes();
         const currentEdges = getEdges();
+
+        console.log("Beep")
 
         layoutFn(currentNodes, currentEdges, options)
             .then(({ nodes: newNodes, edges: newEdges }) => {
@@ -198,6 +203,10 @@ const StreamlitFlowComponent = (props) => {
     useEffect(() => {
         if (lastUpdateTimestamp <= props.args.timestamp) {
             if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
+                if (props.args.nodes.filter(node => !node.id.startsWith('output-')).every(node => node.position.x === 0 && node.position.y === 0)) {
+                    performLayoutOnce();
+                }
+    
                 setLayoutNeedsUpdate(true);
                 setLastUpdateTimestamp((new Date()).getTime());
                 setNodes(props.args.nodes);
@@ -440,6 +449,15 @@ const StreamlitFlowComponent = (props) => {
             filter: (node) => {
                 if (!node.classList) return true
                 const cls = node.classList
+                
+                if (node.tagName === 'IMG') {
+                    const imageUrl = new URL(node.src);
+                    if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {
+                        console.warn('External image:', node.src);
+                        return false;
+                    }
+                }
+                
                 if (
                     cls.contains('react-flow__minimap') ||  // hide MiniMap
                     cls.contains('react-flow__controls') ||  // hide Controls
@@ -454,29 +472,6 @@ const StreamlitFlowComponent = (props) => {
         console.log(dataUrl)  // this PNG now has both your Flow and the overlay
         handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
     }
-
-    // const handleSave = () => {
-    //     // grab the PNG data URL:
-    //     const dataURL = overlayRef.current.getDataURL();
-    //     console.log(dataURL);
-
-    //     const nodesBounds = getNodesBounds(getNodes());
-    //     const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
-
-    //     toPng(document.querySelector('.react-flow__viewport'), {
-    //         backgroundColor: '#FFFFFF',
-    //         width: imageWidth,
-    //         height: imageHeight,
-    //         style: {
-    //             width: imageWidth,
-    //             height: imageHeight,
-    //             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-    //         },
-    //     }).then((dataUrl) => {
-    //         console.log("PNG data URL:", dataUrl);
-    //         console.log(dataUrl);
-    //     })
-    // }
 
 
     const handleClear = () => {
@@ -505,6 +500,7 @@ const StreamlitFlowComponent = (props) => {
                     onNodeClick={handleNodeClick}
                     onNodeDoubleClick={handleNodeContextMenu}
                     onNodesDelete={onNodesDelete}
+                    
                     onEdgeClick={handleEdgeClick}
                     onNodeDragStart={clearMenus}
                     onPaneClick={handlePaneClick}
@@ -517,6 +513,14 @@ const StreamlitFlowComponent = (props) => {
                     zoomOnPinch={props.args.allowZoom}
                     minZoom={props.args.minZoom}
                     proOptions={{ hideAttribution: props.args.hideWatermark }}>
+                    {/* /* edgesUpdatable={!disabled}
+                    edgesFocusable={!disabled}
+                    nodesDraggable={!disabled}
+                    nodesConnectable={!disabled}
+                    nodesFocusable={!disabled}
+                    draggable={!disabled}
+                    panOnDrag={!disabled}
+                    elementsSelectable={!disabled} */}
                     <Background />
                     {paneContextMenu && <PaneConextMenu
                         paneContextMenu={paneContextMenu}
