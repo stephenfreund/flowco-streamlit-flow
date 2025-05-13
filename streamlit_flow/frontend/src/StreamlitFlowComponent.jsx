@@ -9,7 +9,8 @@ isEqual from "lodash";
 
 import differenceWith from "lodash";
 
-import { MagicWandIcon } from '@radix-ui/react-icons'
+import { FontSizeIcon, MagicWandIcon } from '@radix-ui/react-icons'
+import { MdOutlineSmartToy } from "react-icons/md";
 
 import { toPng } from 'html-to-image';
 import ReactFlow, {
@@ -467,8 +468,10 @@ const StreamlitFlowComponent = (props) => {
                 }
                 return true
             }
-
-        })
+        }).then((dataUrl) => {
+            handleClear();
+            return dataUrl;
+        });
         console.log(dataUrl)  // this PNG now has both your Flow and the overlay
         handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
     }
@@ -552,9 +555,9 @@ const StreamlitFlowComponent = (props) => {
                         setEdges={setEdges}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
                         theme={props.theme} />}
-                    {props.args["showControls"] && <Controls style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
+                    {props.args["showControls"] && <Controls showInteractive={false} style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
                         <ControlButton onClick={grabOverlay} title="Save as PNG">
-                            <MagicWandIcon />
+                            <MdOutlineSmartToy/>
                         </ControlButton>
 
                     </Controls>}
