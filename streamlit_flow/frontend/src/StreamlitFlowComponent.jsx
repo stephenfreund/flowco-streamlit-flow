@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
+import dagre from 'dagre';
+import ELK from 'elkjs';
 
 import {
     Streamlit,
@@ -38,7 +40,6 @@ import PaneConextMenu from "./components/PaneContextMenu";
 import NodeContextMenu from "./components/NodeContextMenu";
 import EdgeContextMenu from "./components/EdgeContextMenu";
 
-import createElkGraphLayout from "./layouts/ElkLayout";
 import { DrawingOverlay } from "./components/DrawingOverlay";
 
 function arraysAreEqual(arr1, arr2) {
@@ -75,25 +76,12 @@ const StreamlitFlowComponent = (props) => {
     const reactFlowInstance = useReactFlow();
     const { fitView, getNodes, getEdges } = useReactFlow();
 
-    // Helper Functions
-    const handleLayout = () => {
-        createElkGraphLayout(getNodes(), getEdges(), props.args.layoutOptions)
-            .then(({ nodes, edges }) => {
-                setNodes(nodes);
-                setEdges(edges);
-                setViewFitAfterLayout(false);
-                handleDataReturnToStreamlit(nodes, edges, null);
-                setLayoutCalculated(true);
-            })
-            .catch(err => console.log(err));
-    }
 
-    const handleDataReturnToStreamlit = (_nodes, _edges, selectedId, command = null) => {
-
+    const handleDataReturnToStreamlit = useCallback((_nodes, _edges, selectedId, command = null) => {
         const timestamp = (new Date()).getTime();
         setLastUpdateTimestamp(timestamp);
         Streamlit.setComponentValue({ 'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp, 'command': command });
-    }
+    }, [setLastUpdateTimestamp])
 
 
 
@@ -122,11 +110,11 @@ const StreamlitFlowComponent = (props) => {
         }
     }
 
-    const clearMenus = () => {
+    const clearMenus = useCallback(() => {
         setPaneContextMenu(null);
         setNodeContextMenu(null);
         setEdgeContextMenu(null);
-    }
+    }, [setPaneContextMenu, setNodeContextMenu, setEdgeContextMenu]);
 
     useEffect(() => {
         function hideError(e) {
@@ -156,42 +144,256 @@ const StreamlitFlowComponent = (props) => {
 
     useEffect(() => Streamlit.setFrameHeight());
 
+    // async function doLayout() {
+    //     const elk = new ELK();
+    //     const spacing = 100,
+    //         direction = 'DOWN',
+    //         algorithm = 'layered',
+    //         layerSpacing = 150,
+    //         clusterPadding = 20;
 
 
-    // build the exact ELK settings you listed
-    const elkOptions = useMemo(() => ({
-        'elk.algorithm': 'layered',
-        'elk.direction': 'DOWN',
-        'elk.spacing.nodeNode': 75,
-        'elk.layered.spacing.nodeNodeBetweenLayers': 100,
-        'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-    }), [
-        props.args.direction,
-        props.args.nodeNodeSpacing,
-        props.args.nodeLayerSpacing
-    ]);
+    //     // 1) Build children array for ELK
+    //     const children = [];
+    //     const hasOutput = new Set(nodes.map(n => n.id.startsWith('output-') ? n.id.replace(/^output-/, '') : null));
+
+    //     for (const node of nodes) {
+    //         const outId = `output-${node.id}`;
+    //         if (hasOutput.has(node.id)) {
+    //             // this node has a companion output-node
+    //             const outputNode = nodes.find(n => n.id === outId);
+    //             children.push({
+    //                 id: `cluster-${node.id}`,
+    //                 // cluster-level layout options to keep children in a row
+    //                 layoutOptions: {
+    //                     'elk.direction': 'RIGHT',
+    //                     'elk.spacing.nodeNode': spacing / 2,
+    //                     'elk.layered.spacing.nodeNodeBetweenLayers': spacing / 2,
+    //                     'elk.padding': `top=${clusterPadding},left=${clusterPadding},bottom=${clusterPadding},right=${clusterPadding}`
+    //                 },
+    //                 children: [
+    //                     {
+    //                         id: node.id,
+    //                         width: node.width,
+    //                         height: node.height
+    //                     },
+    //                     {
+    //                         id: outId,
+    //                         width: outputNode.width,
+    //                         height: outputNode.height
+    //                     }
+    //                 ],
+    //                 edges: [
+    //                     {
+    //                         id: `internal-${node.id}`,
+    //                         source: node.id,
+    //                         target: outId
+    //                     }
+    //                 ]
+    //             });
+    //         }
+    //         else if (!node.id.startsWith('output-')) {
+    //             // standalone node
+    //             children.push({
+    //                 id: node.id,
+    //                 width: node.width,
+    //                 height: node.height
+    //             });
+    //         }
+    //     }
+
+    //     // map real edges up to clusters
+    //     const rootEdges = edges.map(e => {
+    //         const src = hasOutput.has(e.source) ? `cluster-${e.source}` : e.source;
+    //         const tgt = hasOutput.has(e.target) ? `cluster-${e.target}` : e.target;
+    //         return { id: e.id, sources: [src], targets: [tgt] };
+    //     });
+
+    //     // **1) root graph with INCLUDE_CHILDREN**
+    //     const elkGraph = {
+    //         id: 'root',
+    //         layoutOptions: {
+    //             'elk.algorithm': algorithm,
+    //             'elk.direction': direction,
+    //             'elk.spacing.nodeNode': spacing,
+    //             'elk.layered.spacing.nodeNodeBetweenLayers': layerSpacing,
+    //             'elk.layered.spacing.edgeNodeBetweenLayers': layerSpacing,
+    //             'elk.hierarchyHandling': 'INCLUDE_CHILDREN'
+    //         },
+    //         children,      // your clusters + stand-alone nodes
+    //         edges: rootEdges
+    //     };
+
+    //     // **2) per-cluster tweaks** (keep x→output-x horizontal + padded)
+    //     for (const c of elkGraph.children) {
+    //         if (c.children) {
+    //             c.layoutOptions = {
+    //                 'elk.direction': 'RIGHT',
+    //                 'elk.spacing.nodeNode': spacing / 2,
+    //                 'elk.layered.spacing.nodeNodeBetweenLayers': spacing / 2,
+    //                 'elk.padding': `top=${clusterPadding},left=${clusterPadding},bottom=${clusterPadding},right=${clusterPadding}`
+    //             };
+    //         }
+    //     }
+
+    //     console.log('ELK graph:', elkGraph);
+
+    //     // 3) Run layout
+
+    //     const laidOut = await elk.layout(elkGraph);
+
+    //     // 4) Collect positions
+    //     const pos = {};
+    //     for (const child of laidOut.children) {
+    //         if (child.children) {
+    //             // It's a cluster: pull positions of its members
+    //             for (const c of child.children) {
+    //                 pos[c.id] = { x: c.x, y: c.y };
+    //             }
+    //         } else {
+    //             // Standalone
+    //             pos[child.id] = { x: child.x, y: child.y };
+    //         }
+    //     }
+
+    //     // 5) Return new React Flow nodes
+    //     const positioned = nodes.map(n => ({
+    //         ...n,
+    //         // leave width/height alone for output-nodes
+    //         position: pos[n.id]
+    //     }));
+
+    //     console.log('Laid out:', positioned);
+
+    //     return positioned;
+    // }
+
+
+
+    function doLayout() {
+        // Output node dimensions
+        const OUTPUT_NODE_WIDTH = 120;
+        const OUTPUT_NODE_HEIGHT = 80;
+
+        // Spacing
+        const H_SPACING = 40; // horizontal separation between nodes in the same rank
+        const V_SPACING = 40; // vertical separation between ranks
+
+        // 1) Separate base vs output nodes
+        const baseNodes = nodes.filter(n => !n.id.startsWith('output-'));
+        const outputNodes = nodes.filter(n => n.id.startsWith('output-'));
+
+        // 2) Build Dagre graph with only base nodes
+        const g = new dagre.graphlib.Graph();
+        g.setGraph({ rankdir: 'TB', nodesep: H_SPACING, ranksep: V_SPACING });
+        g.setDefaultEdgeLabel(() => ({}));
+
+        // 2) add every node (including output-*)
+        nodes.forEach(n => {
+            g.setNode(n.id, { width: n.width, height: n.height });
+        });
+
+        // 3) add your real edges at weight=1
+        edges.forEach(e => {
+            g.setEdge(e.source, e.target, { weight: 1 });
+        });
+
+        // 4) add a low-weight, minlen=1 edge from each parent → output node
+        nodes
+            .filter(n => n.id.startsWith('output-'))
+            .forEach(out => {
+            const parentId = out.id.replace(/^output-/, '');
+            if (nodes.some(n => n.id === parentId)) {
+                g.setEdge(parentId, out.id, {
+                minlen: 1,   // force it to the next “column” over
+                weight: 0,   // but don’t let it tug on your main DAG
+                });
+            }
+            });
+
+        // 5) let Dagre compute all the x,y positions
+        dagre.layout(g);
+
+        // 6) extract them (converting from centers back to top-left coordinates)
+        const laidOut = nodes.map(n => {
+            const { x, y } = g.node(n.id);
+            return {
+            ...n,
+            position: {
+                x: x - n.width / 2,
+                y: y - n.height / 2,
+            },
+            };
+        });
+
+        return laidOut;
+    }
+
+
+    //     // baseNodes.forEach(n =>
+    //     //     g.setNode(n.id, { width: n.width, height: n.height })
+    //     // );
+    //     // // only include edges between base nodes
+    //     // edges
+    //     //     .filter(e => !e.source.startsWith('output-') && !e.target.startsWith('output-'))
+    //     //     .forEach(e => g.setEdge(e.source, e.target));
+
+    //     // console.log(g)
+
+    //     // dagre.layout(g);
+    //     // console.log(g)
+
+
+    //     // // 3) Map positions back, adding output nodes manually
+    //     // const positionedBase = baseNodes.map(n => {
+    //     //     const { x: cx, y: cy } = g.node(n.id);
+    //     //     return {
+    //     //         ...n,
+    //     //         position: {
+    //     //             x: cx - n.width / 2,
+    //     //             y: cy - n.height / 2,
+    //     //         },
+    //     //     };
+    //     // });
+
+    //     // console.log(positionedBase)
+
+    //     // const positionedOutput = outputNodes.map(n => {
+    //     //     const baseId = n.id.replace('output-', '');
+    //     //     const base = g.node(baseId);
+    //     //     if (base) {
+    //     //         return {
+    //     //             ...n,
+    //     //             position: {
+    //     //                 x: base.x + base.width + H_SPACING,
+    //     //                 y: base.y,
+    //     //             },
+    //     //             width: n.width,
+    //     //             height: n.height,
+    //     //         };
+    //     //     }
+    //     //     // fallback if base not found
+    //     //     return n;
+    //     // });
+
+    //     // return [...positionedBase, ...positionedOutput];
+    // }, [nodes, edges]);
+
 
     // generic “run one layout” helper:
-    const performLayoutOnce = useCallback((
-        layoutFn = createElkGraphLayout,
-        options = { elkOptions }
-    ) => {
-        const currentNodes = getNodes();
-        const currentEdges = getEdges();
+    const performLayoutOnce = useCallback(() => {
+        console.log("Beep")
 
-        layoutFn(currentNodes, currentEdges, options)
-            .then(({ nodes: newNodes, edges: newEdges }) => {
-                setNodes(newNodes);
-                setEdges(newEdges);
-                setViewFitAfterLayout(false);
-                handleDataReturnToStreamlit(newNodes, newEdges, null);
-                setLayoutCalculated(true);
-            })
-            .catch(err => console.error("layout failed", err));
+        const newNodes = doLayout()
+        setNodes(newNodes);
+        setViewFitAfterLayout(false);
+        handleDataReturnToStreamlit(newNodes, getEdges(), null);
+        setLayoutCalculated(true);
     }, [
-        getNodes, getEdges,
-        setNodes, setEdges,
+        getEdges,
+        setNodes,
         setViewFitAfterLayout,
+        doLayout,
         handleDataReturnToStreamlit
     ]);
 
@@ -201,6 +403,10 @@ const StreamlitFlowComponent = (props) => {
     useEffect(() => {
         if (lastUpdateTimestamp <= props.args.timestamp) {
             if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
+                if (props.args.nodes.filter(node => !node.id.startsWith('output-')).every(node => node.position.x === 0 && node.position.y === 0)) {
+                    performLayoutOnce();
+                }
+
                 setLayoutNeedsUpdate(true);
                 setLastUpdateTimestamp((new Date()).getTime());
                 setNodes(props.args.nodes);
@@ -212,7 +418,7 @@ const StreamlitFlowComponent = (props) => {
             }
         }
 
-    }, [props.args.nodes, props.args.edges, props.args.disabled]);
+    }, [props.args.nodes, props.args.edges, props.args.disabled, props.args.timestamp, lastUpdateTimestamp, performLayoutOnce, handleDataReturnToStreamlit, nodes, edges, disabled, setEdges, setNodes]);
 
     // Handle layout when streamlit sends new state
     useEffect(() => {
@@ -220,7 +426,7 @@ const StreamlitFlowComponent = (props) => {
             setLayoutNeedsUpdate(false);
             setLayoutCalculated(false);
         }
-    }, [nodes, edges])
+    }, [nodes, edges, setLayoutNeedsUpdate, layoutNeedsUpdate])
 
     // Auto zoom callback
     useEffect(() => {
@@ -228,12 +434,12 @@ const StreamlitFlowComponent = (props) => {
             fitView();
             setViewFitAfterLayout(true);
         }
-    }, [viewFitAfterLayout, props.args.fitView]);
+    }, [viewFitAfterLayout, props.args.fitView, fitView]);
 
     // Theme callback
     useEffect(() => {
         setEdges(edges.map(edge => ({ ...edge, labelStyle: { 'fill': props.theme.base === "dark" ? 'white' : 'black' } })))
-    }, [props.theme.base])
+    }, [props.theme.base, edges, setEdges]);
 
     // Context Menu Callbacks
 
@@ -276,13 +482,6 @@ const StreamlitFlowComponent = (props) => {
         })
     }
 
-    // Flow interaction callbacks
-
-    // const handlePaneClick = (event) => {
-    //     clearMenus();
-    //     handleDataReturnToStreamlit(nodes, edges, null);
-    // }
-
     const handleNodeClick = useCallback((event, node) => {
         clearMenus();
         // if Shift is down, show htmlPopup and bail out
@@ -310,19 +509,13 @@ const StreamlitFlowComponent = (props) => {
                 handleDataReturnToStreamlit(nodes, edges, node.id);
             }
         }
-    }, [clearMenus, props.args.getNodeOnClick, nodes, edges, handleDataReturnToStreamlit]);
+    }, [clearMenus, props.args.getNodeOnClick, setNodes, nodes, edges, handleDataReturnToStreamlit]);
 
     const handlePaneClick = (event) => {
         clearMenus();
         setHtmlPopup(null);           // ← clear the popup
         handleDataReturnToStreamlit(nodes, edges, null);
     }
-
-    // const handleNodeClick = (event, node) => {
-    //     clearMenus();
-    //     if (props.args.getNodeOnClick)
-    //         handleDataReturnToStreamlit(nodes, edges, node.id);
-    // }
 
     const handleEdgeClick = (event, edge) => {
         clearMenus();
@@ -444,6 +637,15 @@ const StreamlitFlowComponent = (props) => {
             filter: (node) => {
                 if (!node.classList) return true
                 const cls = node.classList
+
+                if (node.tagName === 'IMG') {
+                    const imageUrl = new URL(node.src);
+                    if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {
+                        console.warn('External image:', node.src);
+                        return false;
+                    }
+                }
+
                 if (
                     cls.contains('react-flow__minimap') ||  // hide MiniMap
                     cls.contains('react-flow__controls') ||  // hide Controls
@@ -488,7 +690,7 @@ const StreamlitFlowComponent = (props) => {
                 <ReactFlow
                     nodeTypes={nodeTypes}
                     ref={ref}
-                    nodes={nodes} 
+                    nodes={nodes}
 
                     nodesDraggable={!disabled}
                     nodesConnectable={!disabled}
@@ -519,7 +721,7 @@ const StreamlitFlowComponent = (props) => {
                     minZoom={props.args.minZoom}
                     proOptions={{ hideAttribution: props.args.hideWatermark }}
 
-                    >
+                >
                     <Background />
                     {paneContextMenu && <PaneConextMenu
                         paneContextMenu={paneContextMenu}
@@ -528,7 +730,7 @@ const StreamlitFlowComponent = (props) => {
                         edges={edges}
                         setNodes={setNodes}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                        setLayoutCalculated={() => performLayoutOnce(createElkGraphLayout, { elkOptions })}
+                        layoutOnce={() => performLayoutOnce()}
                         theme={props.theme}
                     />
                     }

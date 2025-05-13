@@ -168,7 +168,7 @@ const CreateNodeModal = ({show, handleClose, nodes, edges, theme, setPaneContext
     );
 }
 
-const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setNodes, handleDataReturnToStreamlit, setLayoutCalculated, theme}) => {
+const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setNodes, handleDataReturnToStreamlit, layoutOnce, theme}) => {
     
     const [showModal, setShowModal] = useState(false);
     const [modalClosing, setModalClosing] = useState(false);
@@ -188,7 +188,7 @@ const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setN
 
     const handleLayoutReset = (e) => {
         setPaneContextMenu(null);
-        setLayoutCalculated(false);
+        layoutOnce();
     };
 
     return (
