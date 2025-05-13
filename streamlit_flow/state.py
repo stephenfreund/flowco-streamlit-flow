@@ -20,6 +20,7 @@ class StreamlitFlowState:
     selected_id: str = None
     timestamp: int = field(default_factory=lambda: int(datetime.now().timestamp() * 1000))
 
+
     def asdict(self):
         return {
             'nodes': [node.asdict() for node in self.nodes],

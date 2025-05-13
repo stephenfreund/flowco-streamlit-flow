@@ -1,3 +1,4 @@
+import dis
 import os
 import streamlit.components.v1 as components
 
@@ -40,6 +41,7 @@ def streamlit_flow(
     enable_node_menu: bool = False,
     enable_edge_menu: bool = False,
     hide_watermark: bool = False,
+    disabled: bool = False,
 ):
     """
     The main function to render the flowchart component in Streamlit.
@@ -91,10 +93,11 @@ def streamlit_flow(
         key=key,
         timestamp=state.timestamp,
         component="streamlit_flow",
+        disabled=disabled,
     )
 
     if component_value is None:
-        return (state, None)
+        return state, None
 
     new_state = (
         StreamlitFlowState(

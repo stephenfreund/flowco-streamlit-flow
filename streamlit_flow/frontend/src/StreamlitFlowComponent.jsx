@@ -4,12 +4,8 @@ import {
     Streamlit,
 } from "streamlit-component-lib"
 
-import
-isEqual from "lodash";
+import isEqual from "lodash";
 
-import differenceWith from "lodash";
-
-import { FontSizeIcon, MagicWandIcon } from '@radix-ui/react-icons'
 import { MdOutlineSmartToy } from "react-icons/md";
 
 import { toPng } from 'html-to-image';
@@ -51,6 +47,9 @@ function arraysAreEqual(arr1, arr2) {
 
 const StreamlitFlowComponent = (props) => {
 
+    // New disable flag
+    const { disabled = false } = props.args;
+
     const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode }), []);
 
     const [viewFitAfterLayout, setViewFitAfterLayout] = useState(null);
@@ -68,6 +67,9 @@ const StreamlitFlowComponent = (props) => {
     const nodesInitialized = useNodesInitialized({ 'includeHiddenNodes': false });
 
     const [htmlPopup, setHtmlPopup] = useState(null);
+
+    // const [disabled, setDisabled] = useState(props.args.disabled);
+
 
     const ref = useRef(null);
     const reactFlowInstance = useReactFlow();
@@ -203,13 +205,14 @@ const StreamlitFlowComponent = (props) => {
                 setLastUpdateTimestamp((new Date()).getTime());
                 setNodes(props.args.nodes);
                 setEdges(props.args.edges);
+                console.log(props.args.disabled, disabled)
                 const selectedId =
                     props.args.nodes.find(node => node.selected)?.id || null;
                 handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
             }
         }
 
-    }, [props.args.nodes, props.args.edges]);
+    }, [props.args.nodes, props.args.edges, props.args.disabled]);
 
     // Handle layout when streamlit sends new state
     useEffect(() => {
@@ -458,29 +461,6 @@ const StreamlitFlowComponent = (props) => {
         handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
     }
 
-    // const handleSave = () => {
-    //     // grab the PNG data URL:
-    //     const dataURL = overlayRef.current.getDataURL();
-    //     console.log(dataURL);
-
-    //     const nodesBounds = getNodesBounds(getNodes());
-    //     const viewport = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
-
-    //     toPng(document.querySelector('.react-flow__viewport'), {
-    //         backgroundColor: '#FFFFFF',
-    //         width: imageWidth,
-    //         height: imageHeight,
-    //         style: {
-    //             width: imageWidth,
-    //             height: imageHeight,
-    //             transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
-    //         },
-    //     }).then((dataUrl) => {
-    //         console.log("PNG data URL:", dataUrl);
-    //         console.log(dataUrl);
-    //     })
-    // }
-
 
     const handleClear = () => {
         overlayRef.current.clear();
@@ -490,36 +470,56 @@ const StreamlitFlowComponent = (props) => {
         handleSave();
     }
 
+    // wrapper to do nothing if disabled
+    const disableWrapper = (func) => {
+        return (event, ...args) => {
+            if (disabled) {
+                event.stopPropagation();
+                event.preventDefault();
+                return;
+            }
+            func(event, ...args);
+        };
+    };
+
     return (
         <div ref={wrapperRef} style={{ height: '100vh', width: '100vw' }}>
             <DrawingOverlay ref={overlayRef} penColor="red" lineWidth={1}>
                 <ReactFlow
                     nodeTypes={nodeTypes}
                     ref={ref}
-                    nodes={nodes}
+                    nodes={nodes} 
+
+                    nodesDraggable={!disabled}
+                    nodesConnectable={!disabled}
+                    elementsSelectable={!disabled}
+
                     onNodesChange={onNodesChange}
-                    onNodeDragStop={handleNodeDragStop}
+                    onNodeDragStop={disableWrapper(handleNodeDragStop)}
                     edges={edges}
                     onEdgesChange={onEdgesChange}
                     onConnect={props.args.allowNewEdges ? handleConnect : null}
                     isValidConnection={isValidConnection}
                     fitView={props.args.fitView}
                     style={props.args.style}
-                    onNodeClick={handleNodeClick}
-                    onNodeDoubleClick={handleNodeContextMenu}
+                    onNodeClick={disableWrapper(handleNodeClick)}
+                    onNodeDoubleClick={disableWrapper(handleNodeContextMenu)}
                     onNodesDelete={onNodesDelete}
-                    onEdgeClick={handleEdgeClick}
-                    onNodeDragStart={clearMenus}
-                    onPaneClick={handlePaneClick}
-                    onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
-                    onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
-                    onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
-                    panOnDrag={props.args.panOnDrag}
+                    onEdgeClick={disableWrapper(handleEdgeClick)}
+                    onNodeDragStart={disableWrapper(clearMenus)}
+
+                    onPaneClick={disableWrapper(handlePaneClick)}
+                    onPaneContextMenu={!disabled && props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
+                    onNodeContextMenu={!disabled && props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
+                    onEdgeContextMenu={!disabled && props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
+                    panOnDrag={!disabled && props.args.panOnDrag}
                     zoomOnDoubleClick={props.args.allowZoom}
                     zoomOnScroll={props.args.allowZoom}
                     zoomOnPinch={props.args.allowZoom}
                     minZoom={props.args.minZoom}
-                    proOptions={{ hideAttribution: props.args.hideWatermark }}>
+                    proOptions={{ hideAttribution: props.args.hideWatermark }}
+
+                    >
                     <Background />
                     {paneContextMenu && <PaneConextMenu
                         paneContextMenu={paneContextMenu}
@@ -552,8 +552,8 @@ const StreamlitFlowComponent = (props) => {
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
                         theme={props.theme} />}
                     {props.args["showControls"] && <Controls showInteractive={false} style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
-                        <ControlButton onClick={grabOverlay} title="Save as PNG">
-                            <MdOutlineSmartToy/>
+                        <ControlButton onClick={grabOverlay} title="Save as PNG" disabled={disabled}>
+                            <MdOutlineSmartToy />
                         </ControlButton>
 
                     </Controls>}
