@@ -1,6 +1,17 @@
+import createElkGraphLayout from "./layouts/ElkLayout";
+
+import {
+    forceSimulation,
+    forceLink,
+    forceManyBody,
+    forceCenter,
+    forceCollide,
+    forceX,
+    forceY
+} from 'd3-force';
+
 import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import dagre from 'dagre';
-import ELK from 'elkjs';
 
 import {
     Streamlit,
@@ -77,6 +88,44 @@ const StreamlitFlowComponent = (props) => {
     const { fitView, getNodes, getEdges } = useReactFlow();
 
 
+    // Helper Functions
+    const handleLayout = () => {
+        createElkGraphLayout(getNodes(), getEdges(), props.args.layoutOptions)
+            .then(({ nodes, edges }) => {
+                setNodes(nodes);
+                setEdges(edges);
+                setViewFitAfterLayout(false);
+                handleDataReturnToStreamlit(nodes, edges, null);
+                setLayoutCalculated(true);
+            })
+            .catch(err => console.log(err));
+    }
+
+    // Layout calculation
+    useEffect(() => {
+        if (nodesInitialized && !layoutCalculated)
+            handleLayout();
+    }, [nodesInitialized, layoutCalculated]);
+
+
+    // Handle layout when streamlit sends new state
+    useEffect(() => {
+        if (layoutNeedsUpdate) {
+            setLayoutNeedsUpdate(false);
+            setLayoutCalculated(false);
+        }
+    }, [nodes, edges])
+
+    // Auto zoom callback
+    useEffect(() => {
+        if (!viewFitAfterLayout && props.args.fitView) {
+            fitView();
+            setViewFitAfterLayout(true);
+        }
+    }, [viewFitAfterLayout, props.args.fitView]);
+
+
+
     const handleDataReturnToStreamlit = useCallback((_nodes, _edges, selectedId, command = null) => {
         const timestamp = (new Date()).getTime();
         setLastUpdateTimestamp(timestamp);
@@ -144,242 +193,132 @@ const StreamlitFlowComponent = (props) => {
 
     useEffect(() => Streamlit.setFrameHeight());
 
-    // async function doLayout() {
-    //     const elk = new ELK();
-    //     const spacing = 100,
-    //         direction = 'DOWN',
-    //         algorithm = 'layered',
-    //         layerSpacing = 150,
-    //         clusterPadding = 20;
 
+    // function doLayout() {
 
-    //     // 1) Build children array for ELK
-    //     const children = [];
-    //     const hasOutput = new Set(nodes.map(n => n.id.startsWith('output-') ? n.id.replace(/^output-/, '') : null));
+    //     // Spacing
+    //     const H_SPACING = 200; // horizontal separation between nodes in the same rank
+    //     const V_SPACING = 40; // vertical separation between ranks
 
-    //     for (const node of nodes) {
-    //         const outId = `output-${node.id}`;
-    //         if (hasOutput.has(node.id)) {
-    //             // this node has a companion output-node
-    //             const outputNode = nodes.find(n => n.id === outId);
-    //             children.push({
-    //                 id: `cluster-${node.id}`,
-    //                 // cluster-level layout options to keep children in a row
-    //                 layoutOptions: {
-    //                     'elk.direction': 'RIGHT',
-    //                     'elk.spacing.nodeNode': spacing / 2,
-    //                     'elk.layered.spacing.nodeNodeBetweenLayers': spacing / 2,
-    //                     'elk.padding': `top=${clusterPadding},left=${clusterPadding},bottom=${clusterPadding},right=${clusterPadding}`
-    //                 },
-    //                 children: [
-    //                     {
-    //                         id: node.id,
-    //                         width: node.width,
-    //                         height: node.height
-    //                     },
-    //                     {
-    //                         id: outId,
-    //                         width: outputNode.width,
-    //                         height: outputNode.height
-    //                     }
-    //                 ],
-    //                 edges: [
-    //                     {
-    //                         id: `internal-${node.id}`,
-    //                         source: node.id,
-    //                         target: outId
-    //                     }
-    //                 ]
-    //             });
-    //         }
-    //         else if (!node.id.startsWith('output-')) {
-    //             // standalone node
-    //             children.push({
-    //                 id: node.id,
-    //                 width: node.width,
-    //                 height: node.height
-    //             });
-    //         }
-    //     }
+    //     // 1) Separate base vs output nodes
+    //     const baseNodes = nodes.filter(n => !n.id.startsWith('output-'));
+    //     const outputNodes = nodes.filter(n => n.id.startsWith('output-'));
 
-    //     // map real edges up to clusters
-    //     const rootEdges = edges.map(e => {
-    //         const src = hasOutput.has(e.source) ? `cluster-${e.source}` : e.source;
-    //         const tgt = hasOutput.has(e.target) ? `cluster-${e.target}` : e.target;
-    //         return { id: e.id, sources: [src], targets: [tgt] };
+    //     // 2) Build Dagre graph with only base nodes
+    //     const g = new dagre.graphlib.Graph();
+    //     g.setGraph({ rankdir: 'TB', align: 'DR', nodesep: H_SPACING, ranksep: V_SPACING });
+    //     g.setDefaultEdgeLabel(() => ({}));
+
+    //     // 2) add every node (including output-*)
+    //     nodes.forEach(n => {
+    //         g.setNode(n.id, { width: n.width, height: n.height });
     //     });
 
-    //     // **1) root graph with INCLUDE_CHILDREN**
-    //     const elkGraph = {
-    //         id: 'root',
-    //         layoutOptions: {
-    //             'elk.algorithm': algorithm,
-    //             'elk.direction': direction,
-    //             'elk.spacing.nodeNode': spacing,
-    //             'elk.layered.spacing.nodeNodeBetweenLayers': layerSpacing,
-    //             'elk.layered.spacing.edgeNodeBetweenLayers': layerSpacing,
-    //             'elk.hierarchyHandling': 'INCLUDE_CHILDREN'
-    //         },
-    //         children,      // your clusters + stand-alone nodes
-    //         edges: rootEdges
-    //     };
+    //     // 3) add your real edges at weight=1
+    //     edges.forEach(e => {
+    //         g.setEdge(e.source, e.target, { weight: 0 });
+    //     });
 
-    //     // **2) per-cluster tweaks** (keep x→output-x horizontal + padded)
-    //     for (const c of elkGraph.children) {
-    //         if (c.children) {
-    //             c.layoutOptions = {
-    //                 'elk.direction': 'RIGHT',
-    //                 'elk.spacing.nodeNode': spacing / 2,
-    //                 'elk.layered.spacing.nodeNodeBetweenLayers': spacing / 2,
-    //                 'elk.padding': `top=${clusterPadding},left=${clusterPadding},bottom=${clusterPadding},right=${clusterPadding}`
-    //             };
+    //     // 4) add a low-weight, minlen=1 edge from each parent → output node
+    //     nodes
+    //         .filter(n => n.id.startsWith('output-'))
+    //         .forEach(out => {
+    //         const parentId = out.id.replace(/^output-/, '');
+    //         if (nodes.some(n => n.id === parentId)) {
+    //             g.setEdge(parentId, out.id, {
+    //             minlen: 0,   // force it to the next “column” over
+    //             weight: 0,   // but don’t let it tug on your main DAG
+    //             });
+    //             g.setEdge(out.id, parentId, {
+    //             minlen: 0,   // force it to the next “column” over
+    //             weight: 0,   // but don’t let it tug on your main DAG
+    //             });
     //         }
-    //     }
+    //         });
 
-    //     console.log('ELK graph:', elkGraph);
+    //     // 5) let Dagre compute all the x,y positions
+    //     dagre.layout(g);
 
-    //     // 3) Run layout
-
-    //     const laidOut = await elk.layout(elkGraph);
-
-    //     // 4) Collect positions
-    //     const pos = {};
-    //     for (const child of laidOut.children) {
-    //         if (child.children) {
-    //             // It's a cluster: pull positions of its members
-    //             for (const c of child.children) {
-    //                 pos[c.id] = { x: c.x, y: c.y };
-    //             }
-    //         } else {
-    //             // Standalone
-    //             pos[child.id] = { x: child.x, y: child.y };
-    //         }
-    //     }
-
-    //     // 5) Return new React Flow nodes
-    //     const positioned = nodes.map(n => ({
+    //     // 6) extract them (converting from centers back to top-left coordinates)
+    //     const laidOut = nodes.map(n => {
+    //         const { x, y } = g.node(n.id);
+    //         return {
     //         ...n,
-    //         // leave width/height alone for output-nodes
-    //         position: pos[n.id]
-    //     }));
+    //         position: {
+    //             x: x - n.width / 2,
+    //             y: y - n.height / 2,
+    //         },
+    //         };
+    //     });
 
-    //     console.log('Laid out:', positioned);
-
-    //     return positioned;
+    //     return laidOut;
     // }
 
-
-
-    function doLayout() {
-        // Output node dimensions
-        const OUTPUT_NODE_WIDTH = 120;
-        const OUTPUT_NODE_HEIGHT = 80;
-
-        // Spacing
-        const H_SPACING = 40; // horizontal separation between nodes in the same rank
-        const V_SPACING = 40; // vertical separation between ranks
-
-        // 1) Separate base vs output nodes
-        const baseNodes = nodes.filter(n => !n.id.startsWith('output-'));
-        const outputNodes = nodes.filter(n => n.id.startsWith('output-'));
-
-        // 2) Build Dagre graph with only base nodes
-        const g = new dagre.graphlib.Graph();
-        g.setGraph({ rankdir: 'TB', nodesep: H_SPACING, ranksep: V_SPACING });
-        g.setDefaultEdgeLabel(() => ({}));
-
-        // 2) add every node (including output-*)
-        nodes.forEach(n => {
-            g.setNode(n.id, { width: n.width, height: n.height });
-        });
-
-        // 3) add your real edges at weight=1
-        edges.forEach(e => {
-            g.setEdge(e.source, e.target, { weight: 1 });
-        });
-
-        // 4) add a low-weight, minlen=1 edge from each parent → output node
-        nodes
-            .filter(n => n.id.startsWith('output-'))
-            .forEach(out => {
-            const parentId = out.id.replace(/^output-/, '');
-            if (nodes.some(n => n.id === parentId)) {
-                g.setEdge(parentId, out.id, {
-                minlen: 1,   // force it to the next “column” over
-                weight: 0,   // but don’t let it tug on your main DAG
-                });
-            }
+    function forceAbove(linkData, spacing = 80, strength = 0.1) {
+        function force(alpha) {
+            linkData.forEach(l => {
+                const s = l.source;
+                const t = l.target;
+                // desired s.y <= t.y - spacing
+                const delta = ((t.y - spacing) - s.y);
+                if (delta < 0) {
+                    // move them apart
+                    const adjust = delta * strength * alpha;
+                    s.y += adjust;
+                    t.y -= adjust;
+                }
             });
-
-        // 5) let Dagre compute all the x,y positions
-        dagre.layout(g);
-
-        // 6) extract them (converting from centers back to top-left coordinates)
-        const laidOut = nodes.map(n => {
-            const { x, y } = g.node(n.id);
-            return {
-            ...n,
-            position: {
-                x: x - n.width / 2,
-                y: y - n.height / 2,
-            },
-            };
-        });
-
-        return laidOut;
+        }
+        // We don’t need initialize(): linkData already has node refs
+        force.initialize = () => { };
+        return force;
     }
 
 
-    //     // baseNodes.forEach(n =>
-    //     //     g.setNode(n.id, { width: n.width, height: n.height })
-    //     // );
-    //     // // only include edges between base nodes
-    //     // edges
-    //     //     .filter(e => !e.source.startsWith('output-') && !e.target.startsWith('output-'))
-    //     //     .forEach(e => g.setEdge(e.source, e.target));
+    function doLayout() {
+        const H_SPACING = 300;
+        const V_SPACING = 300;
 
-    //     // console.log(g)
+        // Clone so we don’t mutate originals
+        const simNodes = nodes.map(n => ({ ...n }));
+        const simEdges = edges.map(e => ({ source: e.source, target: e.target }));
 
-    //     // dagre.layout(g);
-    //     // console.log(g)
+        // Build the simulation
+        const sim = forceSimulation(simNodes)
+            .force('link', forceLink(simEdges)
+                .id(d => d.id)
+                .distance(d => d.target.id.startsWith('output-') ? H_SPACING : V_SPACING)
+                .strength(1))
+            .force('charge', forceManyBody().strength(-300))
+            .force('center', forceCenter(0, 0))
+            .force('collide', forceCollide().radius(d => Math.max(d.width, d.height) / 2 + 10))
+            .force('x', forceX().strength(0.2).x(d => {
+                if (d.id.startsWith('output-')) {
+                    const parent = simNodes.find(n => n.id === d.id.replace('output-', ''));
+                    return parent ? parent.x + 600 : 0;
+                }
+                return 0;
+            }))
+            .force('y', forceY().strength(0.2).y(d => {
+                if (d.id.startsWith('output-')) {
+                    const parent = simNodes.find(n => n.id === d.id.replace('output-', ''));
+                    return parent ? parent.y : 0;
+                }
+                return 0;
+            }))
+            // <-- our custom ordering force
+            .force('above', forceAbove(simEdges, V_SPACING, 1))
+            .stop();
 
+        // Run it
+        for (let i = 0; i < 300; ++i) sim.tick();
 
-    //     // // 3) Map positions back, adding output nodes manually
-    //     // const positionedBase = baseNodes.map(n => {
-    //     //     const { x: cx, y: cy } = g.node(n.id);
-    //     //     return {
-    //     //         ...n,
-    //     //         position: {
-    //     //             x: cx - n.width / 2,
-    //     //             y: cy - n.height / 2,
-    //     //         },
-    //     //     };
-    //     // });
-
-    //     // console.log(positionedBase)
-
-    //     // const positionedOutput = outputNodes.map(n => {
-    //     //     const baseId = n.id.replace('output-', '');
-    //     //     const base = g.node(baseId);
-    //     //     if (base) {
-    //     //         return {
-    //     //             ...n,
-    //     //             position: {
-    //     //                 x: base.x + base.width + H_SPACING,
-    //     //                 y: base.y,
-    //     //             },
-    //     //             width: n.width,
-    //     //             height: n.height,
-    //     //         };
-    //     //     }
-    //     //     // fallback if base not found
-    //     //     return n;
-    //     // });
-
-    //     // return [...positionedBase, ...positionedOutput];
-    // }, [nodes, edges]);
-
-
+        // Map back to your format
+        return simNodes.map(n => ({
+            ...n,
+            position: { x: n.x - n.width / 2, y: n.y - n.height / 2 }
+        }));
+    }
     // generic “run one layout” helper:
     const performLayoutOnce = useCallback(() => {
         console.log("Beep")
@@ -403,15 +342,11 @@ const StreamlitFlowComponent = (props) => {
     useEffect(() => {
         if (lastUpdateTimestamp <= props.args.timestamp) {
             if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
-                if (props.args.nodes.filter(node => !node.id.startsWith('output-')).every(node => node.position.x === 0 && node.position.y === 0)) {
-                    performLayoutOnce();
-                }
-
+                console.log(props.args.nodes, props.args.edges)
                 setLayoutNeedsUpdate(true);
                 setLastUpdateTimestamp((new Date()).getTime());
                 setNodes(props.args.nodes);
                 setEdges(props.args.edges);
-                console.log(props.args.disabled, disabled)
                 const selectedId =
                     props.args.nodes.find(node => node.selected)?.id || null;
                 handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
