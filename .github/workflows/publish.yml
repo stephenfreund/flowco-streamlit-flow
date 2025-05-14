@@ -1,0 +1,51 @@
+# .github/workflows/publish.yml
+name: Build & Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install frontend dependencies & build
+        run: |
+          cd streamlit_flow/frontend
+          npm ci
+          npm run build
+          cd -
+
+      - name: Mark release in package
+        run: |
+          sed -i 's/_RELEASE = False/_RELEASE = True/g' streamlit_flow/__init__.py
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade build twine
+
+      - name: Build source and wheel
+        run: |
+          python -m build
+
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          python -m twine upload dist/*
