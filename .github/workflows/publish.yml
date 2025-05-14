@@ -25,6 +25,8 @@ jobs:
           node-version: '18.x'
 
       - name: Install frontend dependencies & build
+        env:
+          CI: false      
         run: |
           cd streamlit_flow/frontend
           npm ci
