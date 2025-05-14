@@ -6,14 +6,14 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setuptools.setup(
-    name="streamlit-flow-component",
-    version="1.6.1",
-    author="Dhruv Kapur",
-    author_email="dhruvkapur4@gmail.com",
-    description="Streamlit Component Wrapper for React Flow",
+    name="flowco-streamlit-flow",
+    version="0.0.1",
+    author="Stephen Freund",
+    author_email="sfreund@williams.edu",
+    description="Streamlit Component Wrapper for React Flow, modified for Flowco.  Original: https://github.com/dkapur17/streamlit-flow",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/dkapur17/streamlit-flow",
+    url="https://github.com/stephenfreund/flowco-streamlit-flow",
     packages=setuptools.find_packages(),
     include_package_data=True,
     classifiers=[],
@@ -33,5 +33,5 @@ setuptools.setup(
             "pytest-playwright-snapshot==1.0",
             "pytest-rerunfailures==12.0",
         ]
-    }
+    },
 )
