@@ -54,7 +54,6 @@ class StreamlitFlowNode:
         style: Dict[str, any] = {},
         **kwargs,
     ) -> None:
-        print(style)
         if "width" not in style:
             style["width"] = "auto"
         if "height" not in style:

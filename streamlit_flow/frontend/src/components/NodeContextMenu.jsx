@@ -18,7 +18,7 @@ const EditNodeModal = ({ show, node, handleClose, theme, setNodeContextMenu, set
     }
 
     const onPillContentChange = (e) => {
-        const pill = 
+        const pill =
             e.target.value
                 .replace(/[^a-zA-Z0-9]/g, '-')
                 .split('-')
@@ -70,7 +70,7 @@ const EditNodeModal = ({ show, node, handleClose, theme, setNodeContextMenu, set
         </Modal>);
 };
 
-const NodeContextMenu = ({ nodeContextMenu, nodes, edges, setNodeContextMenu, setNodes, setEdges, theme, handleDataReturnToStreamlit }) => {
+const NodeContextMenu = ({ nodeContextMenu, nodes, edges, setNodeContextMenu, setNodes, setEdges, theme, disabled, handleDataReturnToStreamlit }) => {
 
     const [showModal, setShowModal] = useState(false);
     const [modalClosing, setModalClosing] = useState(false);
@@ -122,19 +122,19 @@ const NodeContextMenu = ({ nodeContextMenu, nodes, edges, setNodeContextMenu, se
                 zIndex: 10
             }}>
                 {(!showModal && !modalClosing) && <ButtonGroup vertical>
-                    <Button variant="outline-primary" onClick={handleEditNode} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Quick Edit</Button>
+                    <Button variant="outline-primary" onClick={handleEditNode} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Quick Edit</Button>
 
-                    { nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Edit</Button>}
-                    { !nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-arrow-clockwise"></i> Update</Button>}
+                    {nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-pencil-square"></i> Edit</Button>}
+                    {!nodeContextMenu.node.data.editable && <Button variant="outline-primary" onClick={handleCommand("edit")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-arrow-clockwise"></i> Update</Button>}
 
-                    { !nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("lock")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-lock"></i> Lock</Button> }
-                    { nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("unlock")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-unlock"></i> Unlock</Button> }                    
+                    {!nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("lock")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-lock"></i> Lock</Button>}
+                    {nodeContextMenu.node.data.locked && <Button variant="outline-primary" onClick={handleCommand("unlock")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-unlock"></i> Unlock</Button>}
                     <span className="btn-divider" />
-                    { !nodeContextMenu.node.data.show_output && <Button variant="outline-success" onClick={handleCommand("show")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-eye"></i> Show Output</Button> }
-                    { nodeContextMenu.node.data.show_output && <Button variant="outline-success" onClick={handleCommand("hide")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-eye-slash"></i> Hide Output</Button> }
-                    <Button variant="outline-success" onClick={handleCommand("run")} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-play"></i>Run </Button>
+                    {!nodeContextMenu.node.data.show_output && <Button variant="outline-success" onClick={handleCommand("show")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-eye"></i> Show Output</Button>}
+                    {nodeContextMenu.node.data.show_output && <Button variant="outline-success" onClick={handleCommand("hide")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-eye-slash"></i> Hide Output</Button>}
+                    <Button variant="outline-success" onClick={handleCommand("run")} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-play"></i>Run </Button>
                     <span className="btn-divider" />
-                    <Button variant={nodeContextMenu.node.deletable ? "outline-danger" : "secondary"} onClick={handleDeleteNode} disabled={!nodeContextMenu.node.deletable}><i className="bi bi-trash3"></i> Delete Node</Button>
+                    <Button variant={nodeContextMenu.node.deletable ? "outline-danger" : "secondary"} onClick={handleDeleteNode} disabled={disabled || !nodeContextMenu.node.deletable}><i className="bi bi-trash3"></i> Delete Node</Button>
 
                 </ButtonGroup>}
             </div>

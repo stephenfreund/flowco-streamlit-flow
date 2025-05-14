@@ -13,6 +13,8 @@ const DrawingOverlay = forwardRef(({
   const ctxRef       = useRef(null);
   const drawing      = useRef(false);
 
+  const empty = useRef(true);
+
   // Initialize canvas
   useEffect(() => {
     const resize = () => {
@@ -37,6 +39,10 @@ const DrawingOverlay = forwardRef(({
     clear:     () => {
       const c = canvasRef.current;
       ctxRef.current.clearRect(0, 0, c.width, c.height);
+      empty.current = true;
+    },
+    isNotBlank: () => {
+      return !empty.current;
     },
     getDrawingBounds: () => {
       const canvas = canvasRef.current;
@@ -78,6 +84,7 @@ const DrawingOverlay = forwardRef(({
       ctxRef.current.moveTo(e.clientX - rect.left, e.clientY - rect.top);
       drawing.current = true;
       containerRef.current.setPointerCapture(e.pointerId);
+      empty.current = false;
     }
   };
   const move = e => {

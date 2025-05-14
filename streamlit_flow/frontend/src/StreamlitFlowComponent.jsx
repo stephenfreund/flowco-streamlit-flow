@@ -1,17 +1,4 @@
-import createElkGraphLayout from "./layouts/ElkLayout";
-
-import {
-    forceSimulation,
-    forceLink,
-    forceManyBody,
-    forceCenter,
-    forceCollide,
-    forceX,
-    forceY
-} from 'd3-force';
-
-import React, { useRef, useEffect, useState, useMemo, useCallback } from "react"
-import dagre from 'dagre';
+import { useRef, useEffect, useState, useMemo, useCallback } from "react"
 
 import {
     Streamlit,
@@ -19,7 +6,8 @@ import {
 
 import isEqual from "lodash";
 
-import { MdOutlineSmartToy } from "react-icons/md";
+
+import { MdDownload, MdOutlineSmartToy } from "react-icons/md";
 
 import { toPng } from 'html-to-image';
 import ReactFlow, {
@@ -38,6 +26,7 @@ import ReactFlow, {
     useReactFlow,
     getNodesBounds,
     getViewportForBounds,
+    getTransformForBounds
 } from 'reactflow';
 
 import 'reactflow/dist/style.css';
@@ -51,7 +40,19 @@ import PaneConextMenu from "./components/PaneContextMenu";
 import NodeContextMenu from "./components/NodeContextMenu";
 import EdgeContextMenu from "./components/EdgeContextMenu";
 
+import createElkGraphLayout from "./layouts/ElkLayout";
 import { DrawingOverlay } from "./components/DrawingOverlay";
+
+import {
+    forceSimulation,
+    forceLink,
+    forceManyBody,
+    forceCenter,
+    forceCollide,
+    forceX,
+    forceY
+} from 'd3-force';
+
 
 function arraysAreEqual(arr1, arr2) {
     return isEqual.isEqual(arr1, arr2);
@@ -59,8 +60,7 @@ function arraysAreEqual(arr1, arr2) {
 
 const StreamlitFlowComponent = (props) => {
 
-    // New disable flag
-    const { disabled = false } = props.args;
+    const disabled = props.args.disabled;
 
     const nodeTypes = useMemo(() => ({ input: MarkdownInputNode, output: MarkdownOutputNode, default: MarkdownDefaultNode }), []);
 
@@ -80,12 +80,19 @@ const StreamlitFlowComponent = (props) => {
 
     const [htmlPopup, setHtmlPopup] = useState(null);
 
-    // const [disabled, setDisabled] = useState(props.args.disabled);
-
-
     const ref = useRef(null);
     const reactFlowInstance = useReactFlow();
     const { fitView, getNodes, getEdges } = useReactFlow();
+
+
+
+    const handleDataReturnToStreamlit = (_nodes, _edges, selectedId, command = null) => {
+
+        const timestamp = (new Date()).getTime();
+        setLastUpdateTimestamp(timestamp);
+        Streamlit.setComponentValue({ 'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp, 'command': command });
+    }
+
 
 
     // Helper Functions
@@ -101,181 +108,28 @@ const StreamlitFlowComponent = (props) => {
             .catch(err => console.log(err));
     }
 
-    // Layout calculation
-    useEffect(() => {
-        if (nodesInitialized && !layoutCalculated)
-            handleLayout();
-    }, [nodesInitialized, layoutCalculated]);
+    const forceDirectedLayout = useCallback(() => {
 
-
-    // Handle layout when streamlit sends new state
-    useEffect(() => {
-        if (layoutNeedsUpdate) {
-            setLayoutNeedsUpdate(false);
-            setLayoutCalculated(false);
-        }
-    }, [nodes, edges])
-
-    // Auto zoom callback
-    useEffect(() => {
-        if (!viewFitAfterLayout && props.args.fitView) {
-            fitView();
-            setViewFitAfterLayout(true);
-        }
-    }, [viewFitAfterLayout, props.args.fitView]);
-
-
-
-    const handleDataReturnToStreamlit = useCallback((_nodes, _edges, selectedId, command = null) => {
-        const timestamp = (new Date()).getTime();
-        setLastUpdateTimestamp(timestamp);
-        Streamlit.setComponentValue({ 'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp, 'command': command });
-    }, [setLastUpdateTimestamp])
-
-
-
-    // wrap onNodesChange so we can catch resize events
-    const onNodesChange = useCallback((changes) => {
-        onNodesChangeRaw(changes);
-        if (changes.length === 1 && changes[0].type === 'dimensions' && !changes[0].resizing) {
-            handleDataReturnToStreamlit(getNodes(), getEdges(), changes[0].id);
-        }
-    }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
-
-    // wrap onNodesChange so we can catch resize events
-    const onEdgesChange = useCallback((changes) => {
-        onEdgesChangeRaw(changes);
-        handleDataReturnToStreamlit(getNodes(), getEdges(), null);
-    }, [onEdgesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
-
-
-    const calculateMenuPosition = (event) => {
-        const pane = ref.current.getBoundingClientRect();
-        return {
-            top: event.clientY < pane.height - 200 && event.clientY,
-            left: event.clientX < pane.width - 200 && event.clientX,
-            right: event.clientX >= pane.width - 200 && pane.width - event.clientX,
-            bottom: event.clientY >= pane.height - 200 && pane.height - event.clientY,
-        }
-    }
-
-    const clearMenus = useCallback(() => {
-        setPaneContextMenu(null);
-        setNodeContextMenu(null);
-        setEdgeContextMenu(null);
-    }, [setPaneContextMenu, setNodeContextMenu, setEdgeContextMenu]);
-
-    useEffect(() => {
-        function hideError(e) {
-            if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
-                const resizeObserverErrDiv = document.getElementById(
-                    'webpack-dev-server-client-overlay-div'
-                );
-                const resizeObserverErr = document.getElementById(
-                    'webpack-dev-server-client-overlay'
-                );
-                if (resizeObserverErr) {
-                    resizeObserverErr.setAttribute('style', 'display: none');
-                }
-                if (resizeObserverErrDiv) {
-                    resizeObserverErrDiv.setAttribute('style', 'display: none');
-                }
-                console.log('ResizeObserver loop completed with undelivered notifications.');
+        function forceAbove(linkData, spacing = 80, strength = 0.1) {
+            function force(alpha) {
+                linkData.forEach(l => {
+                    const s = l.source;
+                    const t = l.target;
+                    // desired s.y <= t.y - spacing
+                    const delta = ((t.y - spacing) - s.y);
+                    if (delta < 0) {
+                        // move them apart
+                        const adjust = delta * strength * alpha;
+                        s.y += adjust;
+                        t.y -= adjust;
+                    }
+                });
             }
+            // We don’t need initialize(): linkData already has node refs
+            force.initialize = () => { };
+            return force;
         }
 
-        window.addEventListener('error', hideError)
-        return () => {
-            window.addEventListener('error', hideError)
-        }
-    }, [])
-
-
-    useEffect(() => Streamlit.setFrameHeight());
-
-
-    // function doLayout() {
-
-    //     // Spacing
-    //     const H_SPACING = 200; // horizontal separation between nodes in the same rank
-    //     const V_SPACING = 40; // vertical separation between ranks
-
-    //     // 1) Separate base vs output nodes
-    //     const baseNodes = nodes.filter(n => !n.id.startsWith('output-'));
-    //     const outputNodes = nodes.filter(n => n.id.startsWith('output-'));
-
-    //     // 2) Build Dagre graph with only base nodes
-    //     const g = new dagre.graphlib.Graph();
-    //     g.setGraph({ rankdir: 'TB', align: 'DR', nodesep: H_SPACING, ranksep: V_SPACING });
-    //     g.setDefaultEdgeLabel(() => ({}));
-
-    //     // 2) add every node (including output-*)
-    //     nodes.forEach(n => {
-    //         g.setNode(n.id, { width: n.width, height: n.height });
-    //     });
-
-    //     // 3) add your real edges at weight=1
-    //     edges.forEach(e => {
-    //         g.setEdge(e.source, e.target, { weight: 0 });
-    //     });
-
-    //     // 4) add a low-weight, minlen=1 edge from each parent → output node
-    //     nodes
-    //         .filter(n => n.id.startsWith('output-'))
-    //         .forEach(out => {
-    //         const parentId = out.id.replace(/^output-/, '');
-    //         if (nodes.some(n => n.id === parentId)) {
-    //             g.setEdge(parentId, out.id, {
-    //             minlen: 0,   // force it to the next “column” over
-    //             weight: 0,   // but don’t let it tug on your main DAG
-    //             });
-    //             g.setEdge(out.id, parentId, {
-    //             minlen: 0,   // force it to the next “column” over
-    //             weight: 0,   // but don’t let it tug on your main DAG
-    //             });
-    //         }
-    //         });
-
-    //     // 5) let Dagre compute all the x,y positions
-    //     dagre.layout(g);
-
-    //     // 6) extract them (converting from centers back to top-left coordinates)
-    //     const laidOut = nodes.map(n => {
-    //         const { x, y } = g.node(n.id);
-    //         return {
-    //         ...n,
-    //         position: {
-    //             x: x - n.width / 2,
-    //             y: y - n.height / 2,
-    //         },
-    //         };
-    //     });
-
-    //     return laidOut;
-    // }
-
-    function forceAbove(linkData, spacing = 80, strength = 0.1) {
-        function force(alpha) {
-            linkData.forEach(l => {
-                const s = l.source;
-                const t = l.target;
-                // desired s.y <= t.y - spacing
-                const delta = ((t.y - spacing) - s.y);
-                if (delta < 0) {
-                    // move them apart
-                    const adjust = delta * strength * alpha;
-                    s.y += adjust;
-                    t.y -= adjust;
-                }
-            });
-        }
-        // We don’t need initialize(): linkData already has node refs
-        force.initialize = () => { };
-        return force;
-    }
-
-
-    function doLayout() {
         const H_SPACING = 300;
         const V_SPACING = 300;
 
@@ -314,16 +168,11 @@ const StreamlitFlowComponent = (props) => {
         for (let i = 0; i < 300; ++i) sim.tick();
 
         // Map back to your format
-        return simNodes.map(n => ({
+        const newNodes = simNodes.map(n => ({
             ...n,
             position: { x: n.x - n.width / 2, y: n.y - n.height / 2 }
         }));
-    }
-    // generic “run one layout” helper:
-    const performLayoutOnce = useCallback(() => {
-        console.log("Beep")
 
-        const newNodes = doLayout()
         setNodes(newNodes);
         setViewFitAfterLayout(false);
         handleDataReturnToStreamlit(newNodes, getEdges(), null);
@@ -332,17 +181,80 @@ const StreamlitFlowComponent = (props) => {
         getEdges,
         setNodes,
         setViewFitAfterLayout,
-        doLayout,
         handleDataReturnToStreamlit
     ]);
 
+
+    // wrap onNodesChange so we can catch resize events
+    const onNodesChange = useCallback((changes) => {
+        onNodesChangeRaw(changes);
+        if (changes.length === 1 && changes[0].type === 'dimensions' && !changes[0].resizing) {
+            handleDataReturnToStreamlit(getNodes(), getEdges(), changes[0].id);
+        }
+    }, [onNodesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
+
+    // wrap onNodesChange so we can catch resize events
+    const onEdgesChange = useCallback((changes) => {
+        onEdgesChangeRaw(changes);
+        handleDataReturnToStreamlit(getNodes(), getEdges(), null);
+    }, [onEdgesChangeRaw, getNodes, getEdges, handleDataReturnToStreamlit]);
+
+
+    const calculateMenuPosition = (event) => {
+        const pane = ref.current.getBoundingClientRect();
+        return {
+            top: event.clientY < pane.height - 200 && event.clientY,
+            left: event.clientX < pane.width - 200 && event.clientX,
+            right: event.clientX >= pane.width - 200 && pane.width - event.clientX,
+            bottom: event.clientY >= pane.height - 200 && pane.height - event.clientY,
+        }
+    }
+
+    const clearMenus = () => {
+        setPaneContextMenu(null);
+        setNodeContextMenu(null);
+        setEdgeContextMenu(null);
+    }
+
+    useEffect(() => {
+        function hideError(e) {
+            if (e.message === 'ResizeObserver loop completed with undelivered notifications.') {
+                const resizeObserverErrDiv = document.getElementById(
+                    'webpack-dev-server-client-overlay-div'
+                );
+                const resizeObserverErr = document.getElementById(
+                    'webpack-dev-server-client-overlay'
+                );
+                if (resizeObserverErr) {
+                    resizeObserverErr.setAttribute('style', 'display: none');
+                }
+                if (resizeObserverErrDiv) {
+                    resizeObserverErrDiv.setAttribute('style', 'display: none');
+                }
+                console.log('ResizeObserver loop completed with undelivered notifications.');
+            }
+        }
+
+        window.addEventListener('error', hideError)
+        return () => {
+            window.addEventListener('error', hideError)
+        }
+    }, [])
+
+
+    useEffect(() => Streamlit.setFrameHeight());
+
+    // Layout calculation
+    useEffect(() => {
+        if (nodesInitialized && !layoutCalculated)
+            handleLayout();
+    }, [nodesInitialized, layoutCalculated]);
 
 
     // Update elements if streamlit sends new arguments - check by comparing timestamp recency
     useEffect(() => {
         if (lastUpdateTimestamp <= props.args.timestamp) {
             if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
-                console.log(props.args.nodes, props.args.edges)
                 setLayoutNeedsUpdate(true);
                 setLastUpdateTimestamp((new Date()).getTime());
                 setNodes(props.args.nodes);
@@ -353,7 +265,7 @@ const StreamlitFlowComponent = (props) => {
             }
         }
 
-    }, [props.args.nodes, props.args.edges, props.args.disabled, props.args.timestamp, lastUpdateTimestamp, performLayoutOnce, handleDataReturnToStreamlit, nodes, edges, disabled, setEdges, setNodes]);
+    }, [props.args.nodes, props.args.edges]);
 
     // Handle layout when streamlit sends new state
     useEffect(() => {
@@ -361,7 +273,7 @@ const StreamlitFlowComponent = (props) => {
             setLayoutNeedsUpdate(false);
             setLayoutCalculated(false);
         }
-    }, [nodes, edges, setLayoutNeedsUpdate, layoutNeedsUpdate])
+    }, [nodes, edges])
 
     // Auto zoom callback
     useEffect(() => {
@@ -369,12 +281,12 @@ const StreamlitFlowComponent = (props) => {
             fitView();
             setViewFitAfterLayout(true);
         }
-    }, [viewFitAfterLayout, props.args.fitView, fitView]);
+    }, [viewFitAfterLayout, props.args.fitView]);
 
     // Theme callback
     useEffect(() => {
         setEdges(edges.map(edge => ({ ...edge, labelStyle: { 'fill': props.theme.base === "dark" ? 'white' : 'black' } })))
-    }, [props.theme.base, edges, setEdges]);
+    }, [props.theme.base])
 
     // Context Menu Callbacks
 
@@ -417,6 +329,13 @@ const StreamlitFlowComponent = (props) => {
         })
     }
 
+    // Flow interaction callbacks
+
+    // const handlePaneClick = (event) => {
+    //     clearMenus();
+    //     handleDataReturnToStreamlit(nodes, edges, null);
+    // }
+
     const handleNodeClick = useCallback((event, node) => {
         clearMenus();
         // if Shift is down, show htmlPopup and bail out
@@ -444,13 +363,14 @@ const StreamlitFlowComponent = (props) => {
                 handleDataReturnToStreamlit(nodes, edges, node.id);
             }
         }
-    }, [clearMenus, props.args.getNodeOnClick, setNodes, nodes, edges, handleDataReturnToStreamlit]);
+    }, [clearMenus, props.args.getNodeOnClick, nodes, edges, handleDataReturnToStreamlit]);
 
     const handlePaneClick = (event) => {
         clearMenus();
         setHtmlPopup(null);           // ← clear the popup
         handleDataReturnToStreamlit(nodes, edges, null);
     }
+
 
     const handleEdgeClick = (event, edge) => {
         clearMenus();
@@ -530,72 +450,15 @@ const StreamlitFlowComponent = (props) => {
     const wrapperRef = useRef(null)
 
     const handleSave = async () => {
-        const imageWidth = 1024;
-        const imageHeight = 768;
-        // 1) figure out the viewport transform you want
-        const nodes = getNodes()
-        const nodesBounds = getNodesBounds(nodes)
-
-        // 2) ask overlay where the ink lives
-        const drawBounds = overlayRef.current.getDrawingBounds();
-
-        // 3) if there is ink, union the rectangles:
-        const unionBounds = drawBounds
-            ? {
-                x: Math.min(nodesBounds.x, drawBounds.x),
-                y: Math.min(nodesBounds.y, drawBounds.y),
-                width: Math.max(
-                    nodesBounds.x + nodesBounds.width,
-                    drawBounds.x + drawBounds.width
-                ) - Math.min(nodesBounds.x, drawBounds.x),
-                height: Math.max(
-                    nodesBounds.y + nodesBounds.height,
-                    drawBounds.y + drawBounds.height
-                ) - Math.min(nodesBounds.y, drawBounds.y),
-            }
-            : nodesBounds;
-
-
-
-        const vp = getViewportForBounds(unionBounds, imageWidth, imageHeight) // 0.5, 2)
-        // 2) snapshot the *entire* wrapper at that transform
-        const dataUrl = await toPng(wrapperRef.current, {
-            width: imageWidth,
-            height: imageHeight,
-            backgroundColor: '#fff',
-            style: {
-                transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
-                transformOrigin: 'top left',
-                width: imageWidth,
-                height: imageHeight,
-            },
-            filter: (node) => {
-                if (!node.classList) return true
-                const cls = node.classList
-
-                if (node.tagName === 'IMG') {
-                    const imageUrl = new URL(node.src);
-                    if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {
-                        console.warn('External image:', node.src);
-                        return false;
-                    }
-                }
-
-                if (
-                    cls.contains('react-flow__minimap') ||  // hide MiniMap
-                    cls.contains('react-flow__controls') ||  // hide Controls
-                    cls.contains('react-flow__background')   // hide grid dots
-                ) {
-                    return false
-                }
-                return true
-            }
-        }).then((dataUrl) => {
-            handleClear();
-            return dataUrl;
-        });
-        console.log(dataUrl)  // this PNG now has both your Flow and the overlay
-        handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
+        const dataUrl = await getDataUrl(getNodes, wrapperRef.current);
+        // download the image
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = 'flow.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        handleClear();
     }
 
 
@@ -603,21 +466,20 @@ const StreamlitFlowComponent = (props) => {
         overlayRef.current.clear();
     };
 
-    const grabOverlay = () => {
-        handleSave();
+    const grabOverlay = async () => {
+        const dataUrl = await getDataUrlWithOverlay(getNodes, overlayRef, wrapperRef, handleClear);
+        console.log(dataUrl)  // this PNG now has both your Flow and the overlay
+        handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
     }
 
-    // wrapper to do nothing if disabled
-    const disableWrapper = (func) => {
-        return (event, ...args) => {
+    function guardAgainstDisabled(f) {
+        return function (...args) {
             if (disabled) {
-                event.stopPropagation();
-                event.preventDefault();
                 return;
             }
-            func(event, ...args);
+            return f(...args);
         };
-    };
+    }
 
     return (
         <div ref={wrapperRef} style={{ height: '100vh', width: '100vw' }}>
@@ -626,37 +488,37 @@ const StreamlitFlowComponent = (props) => {
                     nodeTypes={nodeTypes}
                     ref={ref}
                     nodes={nodes}
-
-                    nodesDraggable={!disabled}
-                    nodesConnectable={!disabled}
-                    elementsSelectable={!disabled}
-
                     onNodesChange={onNodesChange}
-                    onNodeDragStop={disableWrapper(handleNodeDragStop)}
+                    onNodeDragStop={handleNodeDragStop}
                     edges={edges}
                     onEdgesChange={onEdgesChange}
-                    onConnect={props.args.allowNewEdges ? handleConnect : null}
+                    onConnect={guardAgainstDisabled(props.args.allowNewEdges ? handleConnect : null)}
                     isValidConnection={isValidConnection}
                     fitView={props.args.fitView}
                     style={props.args.style}
-                    onNodeClick={disableWrapper(handleNodeClick)}
-                    onNodeDoubleClick={disableWrapper(handleNodeContextMenu)}
+                    onNodeClick={guardAgainstDisabled(handleNodeClick)}
+                    onNodeDoubleClick={guardAgainstDisabled(handleNodeContextMenu)}
                     onNodesDelete={onNodesDelete}
-                    onEdgeClick={disableWrapper(handleEdgeClick)}
-                    onNodeDragStart={disableWrapper(clearMenus)}
 
-                    onPaneClick={disableWrapper(handlePaneClick)}
-                    onPaneContextMenu={!disabled && props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
-                    onNodeContextMenu={!disabled && props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
-                    onEdgeContextMenu={!disabled && props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
-                    panOnDrag={!disabled && props.args.panOnDrag}
+                    onEdgeClick={guardAgainstDisabled(handleEdgeClick)}
+                    onNodeDragStart={clearMenus}
+                    onPaneClick={guardAgainstDisabled(handlePaneClick)}
+                    onPaneContextMenu={props.args.enablePaneMenu ? handlePaneContextMenu : (event) => { }}
+                    onNodeContextMenu={props.args.enableNodeMenu ? handleNodeContextMenu : (event, node) => { }}
+                    onEdgeContextMenu={props.args.enableEdgeMenu ? handleEdgeContextMenu : (event, edge) => { }}
+                    panOnDrag={props.args.panOnDrag}
                     zoomOnDoubleClick={props.args.allowZoom}
                     zoomOnScroll={props.args.allowZoom}
                     zoomOnPinch={props.args.allowZoom}
                     minZoom={props.args.minZoom}
                     proOptions={{ hideAttribution: props.args.hideWatermark }}
-
-                >
+                    edgesUpdatable={!disabled}
+                    edgesFocusable={!disabled}
+                    nodesDraggable={!disabled}
+                    nodesConnectable={!disabled}
+                    nodesFocusable={!disabled}
+                    elementsSelectable={!disabled}
+                    >
                     <Background />
                     {paneContextMenu && <PaneConextMenu
                         paneContextMenu={paneContextMenu}
@@ -665,8 +527,9 @@ const StreamlitFlowComponent = (props) => {
                         edges={edges}
                         setNodes={setNodes}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                        layoutOnce={() => performLayoutOnce()}
+                        layoutOnce={forceDirectedLayout}
                         theme={props.theme}
+                        disabled={disabled}
                     />
                     }
                     {nodeContextMenu && <NodeContextMenu
@@ -678,6 +541,7 @@ const StreamlitFlowComponent = (props) => {
                         setEdges={setEdges}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
                         theme={props.theme}
+                        disabled={disabled}
                     />
                     }
                     {edgeContextMenu && <EdgeContextMenu
@@ -687,9 +551,14 @@ const StreamlitFlowComponent = (props) => {
                         edges={edges}
                         setEdges={setEdges}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                        theme={props.theme} />}
+                        theme={props.theme} 
+                        disabled={disabled}
+                        />}
                     {props.args["showControls"] && <Controls showInteractive={false} style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
-                        <ControlButton onClick={grabOverlay} title="Save as PNG" disabled={disabled}>
+                        <ControlButton onClick={handleSave} disabled={disabled} title="Download image">
+                            <MdDownload />
+                        </ControlButton>
+                        <ControlButton onClick={grabOverlay} disabled={disabled || overlayRef.current === null  || !overlayRef.current.isNotBlank()} title="Update from sketch">
                             <MdOutlineSmartToy />
                         </ControlButton>
 
@@ -723,3 +592,129 @@ const ContextualStreamlitFlowComponent = (props) => {
 }
 
 export default ContextualStreamlitFlowComponent;
+
+async function getDataUrlWithOverlay(getNodes, overlayRef, wrapperRef, handleClear) {
+    const imageWidth = 1024;
+    const imageHeight = 768;
+    // 1) figure out the viewport transform you want
+    const nodes = getNodes();
+    const nodesBounds = getNodesBounds(nodes);
+
+    console.log('Nodes bounds:', nodesBounds);
+
+    // 2) ask overlay where the ink lives
+    const drawBounds = overlayRef.current.getDrawingBounds();
+
+    console.log('Draw bounds:', drawBounds);
+
+    // 3) if there is ink, union the rectangles:
+    const unionBounds = drawBounds
+        ? {
+            x: Math.min(nodesBounds.x, drawBounds.x),
+            y: Math.min(nodesBounds.y, drawBounds.y),
+            width: Math.max(
+                nodesBounds.x + nodesBounds.width,
+                drawBounds.x + drawBounds.width
+            ) - Math.min(nodesBounds.x, drawBounds.x),
+            height: Math.max(
+                nodesBounds.y + nodesBounds.height,
+                drawBounds.y + drawBounds.height
+            ) - Math.min(nodesBounds.y, drawBounds.y),
+        }
+        : nodesBounds;
+
+    console.log('Union bounds:', unionBounds);
+
+    const vp = getViewportForBounds(unionBounds, imageWidth, imageHeight, 0.1, 10)
+
+    console.log('Viewport:', vp);
+
+    // 2) snapshot the *entire* wrapper at that transform
+    const dataUrl = await toPng(wrapperRef.current, {
+        width: imageWidth,
+        height: imageHeight,
+        backgroundColor: '#fff',
+        style: {
+            transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+            transformOrigin: 'top left',
+            width: imageWidth,
+            height: imageHeight,
+        },
+        filter: (node) => {
+            if (!node.classList) return true;
+            const cls = node.classList;
+
+            if (node.tagName === 'IMG') {
+                const imageUrl = new URL(node.src);
+                if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {
+                    console.warn('External image:', node.src);
+                    return false;
+                }
+            }
+
+            if (cls.contains('react-flow__minimap') || // hide MiniMap
+                cls.contains('react-flow__controls') || // hide Controls
+                cls.contains('react-flow__background') // hide grid dots
+            ) {
+                return false;
+            }
+            return true;
+        }
+    }).then((dataUrl) => {
+        handleClear();
+        return dataUrl;
+    });
+    return dataUrl;
+}
+
+
+async function getDataUrl(getNodes, wrapperRef) {
+    const nodes = getNodes();
+    const nodesBounds = getNodesBounds(nodes);
+
+    console.log('Nodes bounds:', nodesBounds);
+
+    const imageWidth = 1024;
+    const imageHeight = 768;
+
+    const vp = getViewportForBounds(nodesBounds, imageWidth, imageHeight, 0.5, 2);
+
+    console.log('Viewport:', vp);
+
+    // 2) snapshot the *entire* wrapper at that transform
+    const dataUrl = await toPng(document.querySelector('.react-flow__viewport'), {
+        width: imageWidth,
+        height: imageHeight,
+        backgroundColor: '#fff',
+        style: {
+            transform: `translate(${vp.x}px, ${vp.y}px)  scale(${vp.zoom}) `,
+            transformOrigin: 'top left',
+            width: imageWidth,
+            height: imageHeight,
+        },
+        filter: (node) => {
+            if (!node.classList) return true;
+            const cls = node.classList;
+
+            if (node.tagName === 'IMG') {
+                const imageUrl = new URL(node.src);
+                if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {
+                    console.warn('External image:', node.src);
+                    return false;
+                }
+            }
+
+            if (cls.contains('react-flow__minimap') || // hide MiniMap
+                cls.contains('react-flow__controls') || // hide Controls
+                cls.contains('react-flow__background') // hide grid dots
+            ) {
+                return false;
+            }
+            return true;
+        }
+    }).then((dataUrl) => {
+        return dataUrl;
+    });
+    return dataUrl;
+}
+

@@ -89,7 +89,7 @@ const EditEdgeModal = ({show, edge, nodes, edges, handleClose, theme, setEdgeCon
 
 }
 
-const EdgeContextMenu = ({edgeContextMenu, nodes, edges, setEdgeContextMenu, setEdges, handleDataReturnToStreamlit, theme}) => {
+const EdgeContextMenu = ({edgeContextMenu, nodes, edges, setEdgeContextMenu, setEdges, handleDataReturnToStreamlit, theme, disabled}) => {
 
     const [showModal, setShowModal] = useState(false);
     const [modalClosing, setModalClosing] = useState(false);
@@ -127,7 +127,7 @@ const EdgeContextMenu = ({edgeContextMenu, nodes, edges, setEdgeContextMenu, set
                         zIndex: 10}}>
             {(!showModal && !modalClosing) && <ButtonGroup vertical>
                 {/* <Button variant="outline-primary" onClick={handleEditEdge}><i className="bi bi-tools"></i> Edit Edge</Button> */}
-                <Button variant={edgeContextMenu.edge.deletable ? "outline-danger" : "secondary"} onClick={handleDeleteEdge} disabled={!edgeContextMenu.edge.deletable}><i className="bi bi-trash3"></i> Delete Edge</Button>
+                <Button variant={edgeContextMenu.edge.deletable ? "outline-danger" : "secondary"} onClick={handleDeleteEdge} disabled={disabled || !edgeContextMenu.edge.deletable}><i className="bi bi-trash3"></i> Delete Edge</Button>
             </ButtonGroup>}
         </div>
         <EditEdgeModal show={showModal}

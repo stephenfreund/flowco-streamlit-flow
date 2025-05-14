@@ -168,7 +168,7 @@ const CreateNodeModal = ({show, handleClose, nodes, edges, theme, setPaneContext
     );
 }
 
-const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setNodes, handleDataReturnToStreamlit, layoutOnce, theme}) => {
+const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setNodes, handleDataReturnToStreamlit, layoutOnce, theme, disabled}) => {
     
     const [showModal, setShowModal] = useState(false);
     const [modalClosing, setModalClosing] = useState(false);
@@ -202,8 +202,8 @@ const PaneConextMenu = ({paneContextMenu, setPaneContextMenu, nodes, edges, setN
                         borderRadius: '8px',
                         zIndex: 10}}>
             {(!showModal && !modalClosing) && <ButtonGroup vertical>
-                <Button variant="outline-primary" onClick={handleAddNode}><i className='bi bi-pencil'></i> Create New Node</Button>
-                <Button variant="outline-success" onClick={handleLayoutReset}><i className='bi bi-arrow-clockwise'></i> Reset Layout</Button>
+                <Button variant="outline-primary" disabled={disabled} onClick={handleAddNode}><i className='bi bi-pencil'></i> Create New Node</Button>
+                <Button variant="outline-success" disabled={disabled} onClick={handleLayoutReset}><i className='bi bi-arrow-clockwise'></i> Reset Layout</Button>
             </ButtonGroup>}
         </div>
         <CreateNodeModal show={showModal} 
