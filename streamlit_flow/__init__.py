@@ -70,6 +70,19 @@ def streamlit_flow(
     nodes = [node.asdict() for node in state.nodes]
     edges = [edge.asdict() for edge in state.edges]
 
+    # print(state.selected_id)
+
+    if state.selected_id is not None:
+        selected_node = next(
+            (node for node in nodes if node["id"] == state.selected_id), None
+        )
+    else:
+        selected_node = None
+    if selected_node is not None:
+        selected_node["selected"] = True
+
+    # print("Selected Node:", selected_node)
+
     component_value = _st_flow_func(
         nodes=nodes,
         edges=edges,
@@ -97,6 +110,7 @@ def streamlit_flow(
     )
 
     if component_value is None:
+        # print("Component value is None, returning current state.")
         return state, None
 
     new_state = (
@@ -112,5 +126,7 @@ def streamlit_flow(
         ),
         component_value["command"],
     )
+
+    # print("New Selected Node:", new_state[0].selected_id)
 
     return new_state

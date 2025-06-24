@@ -102,7 +102,9 @@ const StreamlitFlowComponent = (props) => {
                 setNodes(nodes);
                 setEdges(edges);
                 setViewFitAfterLayout(false);
-                handleDataReturnToStreamlit(nodes, edges, null);
+                const selectedId =
+                    nodes.find(node => node.selected)?.id || null;
+                handleDataReturnToStreamlit(nodes, edges, selectedId);
                 setLayoutCalculated(true);
             })
             .catch(err => console.log(err));
@@ -175,7 +177,9 @@ const StreamlitFlowComponent = (props) => {
 
         setNodes(newNodes);
         setViewFitAfterLayout(false);
-        handleDataReturnToStreamlit(newNodes, getEdges(), null);
+        const selectedId =
+            newNodes.find(node => node.selected)?.id || null;
+        handleDataReturnToStreamlit(newNodes, getEdges(), selectedId);
         setLayoutCalculated(true);
     }, [
         getEdges,
@@ -340,7 +344,6 @@ const StreamlitFlowComponent = (props) => {
         clearMenus();
         // if Shift is down, show htmlPopup and bail out
         if (event.shiftKey) {
-            console.log(node.id)
             if (!node.id.startsWith('output-')) {
                 setHtmlPopup(node.data.html);
             } else {
