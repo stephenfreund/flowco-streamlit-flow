@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setuptools.setup(
     name="flowco-streamlit-flow",
-    version="0.0.1",
+    version="0.0.2",
     author="Stephen Freund",
     author_email="sfreund@williams.edu",
     description="Streamlit Component Wrapper for React Flow, modified for Flowco.  Original: https://github.com/dkapur17/streamlit-flow",
