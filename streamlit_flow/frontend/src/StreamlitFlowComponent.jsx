@@ -82,15 +82,32 @@ const StreamlitFlowComponent = (props) => {
 
     const ref = useRef(null);
     const reactFlowInstance = useReactFlow();
-    const { fitView, getNodes, getEdges } = useReactFlow();
+    const { fitView, getNodes, getEdges, setViewport } = useReactFlow();
+
+    // Set initial viewport from props
+    useEffect(() => {
+        if (props.args.viewport && reactFlowInstance) {
+            if (lastUpdateTimestamp <= props.args.timestamp) {
+                setViewport(props.args.viewport, { duration: 0 });
+            }
+        }
+    }, [props.args.viewport, reactFlowInstance, setViewport, lastUpdateTimestamp]);
 
 
 
     const handleDataReturnToStreamlit = (_nodes, _edges, selectedId, command = null) => {
 
         const timestamp = (new Date()).getTime();
+        console.log("Setting Timestamp", timestamp, selectedId);
         setLastUpdateTimestamp(timestamp);
-        Streamlit.setComponentValue({ 'nodes': _nodes, 'edges': _edges, 'selectedId': selectedId, 'timestamp': timestamp, 'command': command });
+        Streamlit.setComponentValue({
+            'nodes': _nodes,
+            'edges': _edges,
+            'selectedId': selectedId,
+            'timestamp': timestamp,
+            'command': command,
+            'viewport': reactFlowInstance.getViewport()
+        });
     }
 
 
@@ -257,7 +274,8 @@ const StreamlitFlowComponent = (props) => {
 
     // Update elements if streamlit sends new arguments - check by comparing timestamp recency
     useEffect(() => {
-        if (lastUpdateTimestamp <= props.args.timestamp) {
+        // Update if timestamp is newer or forceUpdate is true
+        if (lastUpdateTimestamp <= props.args.timestamp || props.args.forceUpdate) {
             if (!arraysAreEqual(nodes, props.args.nodes) || !arraysAreEqual(edges, props.args.edges)) {
                 setLayoutNeedsUpdate(true);
                 setLastUpdateTimestamp((new Date()).getTime());
@@ -371,6 +389,9 @@ const StreamlitFlowComponent = (props) => {
     const handlePaneClick = (event) => {
         clearMenus();
         setHtmlPopup(null);           // ← clear the popup
+        for (let node of nodes) {
+            node.selected = false;
+        }
         handleDataReturnToStreamlit(nodes, edges, null);
     }
 
@@ -471,7 +492,7 @@ const StreamlitFlowComponent = (props) => {
 
     const grabOverlay = async () => {
         const dataUrl = await getDataUrlWithOverlay(getNodes, overlayRef, wrapperRef, handleClear);
-        console.log(dataUrl)  // this PNG now has both your Flow and the overlay
+        console.log(dataUrl);  // this PNG now has both your Flow and the overlay
         handleDataReturnToStreamlit(nodes, edges, null, { 'command': 'sketch', 'dataUrl': dataUrl });
     }
 
@@ -482,6 +503,12 @@ const StreamlitFlowComponent = (props) => {
             }
             return f(...args);
         };
+    }
+
+    const handleZoom = () => {
+        const selectedId =
+        props.args.nodes.find(node => node.selected)?.id || null;
+        handleDataReturnToStreamlit(props.args.nodes, props.args.edges, selectedId);
     }
 
     return (
@@ -502,7 +529,6 @@ const StreamlitFlowComponent = (props) => {
                     onNodeClick={guardAgainstDisabled(handleNodeClick)}
                     onNodeDoubleClick={guardAgainstDisabled(handleNodeContextMenu)}
                     onNodesDelete={onNodesDelete}
-
                     onEdgeClick={guardAgainstDisabled(handleEdgeClick)}
                     onNodeDragStart={clearMenus}
                     onPaneClick={guardAgainstDisabled(handlePaneClick)}
@@ -521,7 +547,12 @@ const StreamlitFlowComponent = (props) => {
                     nodesConnectable={!disabled}
                     nodesFocusable={!disabled}
                     elementsSelectable={!disabled}
-                    >
+                    onMoveEnd={guardAgainstDisabled(() => {
+                        const selectedId = nodes.find(node => node.selected)?.id || null;
+                        handleDataReturnToStreamlit(nodes, edges, selectedId);
+                    })}
+                    viewport={props.args.viewport}
+                >
                     <Background />
                     {paneContextMenu && <PaneConextMenu
                         paneContextMenu={paneContextMenu}
@@ -554,18 +585,22 @@ const StreamlitFlowComponent = (props) => {
                         edges={edges}
                         setEdges={setEdges}
                         handleDataReturnToStreamlit={handleDataReturnToStreamlit}
-                        theme={props.theme} 
+                        theme={props.theme}
                         disabled={disabled}
-                        />}
-                    {props.args["showControls"] && <Controls showInteractive={false} style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
-                        <ControlButton onClick={handleSave} disabled={disabled} title="Download image">
-                            <MdDownload />
-                        </ControlButton>
-                        <ControlButton onClick={grabOverlay} disabled={disabled || overlayRef.current === null  || !overlayRef.current.isNotBlank()} title="Update from sketch">
-                            <MdOutlineSmartToy />
-                        </ControlButton>
-
-                    </Controls>}
+                    />}
+                    {props.args["showControls"] &&
+                        <Controls showInteractive={false}
+                            onZoomIn={handleZoom}
+                            onZoomOut={handleZoom}
+                            onFitView={handleZoom}
+                            style={{ top: 10, left: 10, right: 'auto', bottom: 'auto' }}>
+                            <ControlButton onClick={handleSave} title="Download image">
+                                <MdDownload />
+                            </ControlButton>
+                            <ControlButton onClick={grabOverlay} disabled={disabled || overlayRef.current === null || !overlayRef.current.isNotBlank()} title="Update from sketch">
+                                <MdOutlineSmartToy />
+                            </ControlButton>
+                        </Controls>}
                     {props.args["showMiniMap"] && <MiniMap pannable zoomable
                         style={{ top: 10, left: 'auto', right: 10, bottom: 'auto' }}
                     />}
@@ -699,6 +734,7 @@ async function getDataUrl(getNodes, wrapperRef) {
             if (!node.classList) return true;
             const cls = node.classList;
 
+            // Note: When in testing mode, the external immages cannot be accessed and are filtered out.
             if (node.tagName === 'IMG') {
                 const imageUrl = new URL(node.src);
                 if (imageUrl.hostname !== window.location.hostname || imageUrl.port !== window.location.port) {

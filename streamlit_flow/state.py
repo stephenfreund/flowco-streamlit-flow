@@ -17,14 +17,15 @@ class StreamlitFlowState:
 
     nodes: List[StreamlitFlowNode]
     edges: List[StreamlitFlowEdge]
-    selected_id: str = None
+    selected_id: str | None = None
     timestamp: int = field(default_factory=lambda: int(datetime.now().timestamp() * 1000))
-
+    viewport: dict | None = None
 
     def asdict(self):
         return {
             'nodes': [node.asdict() for node in self.nodes],
             'edges': [edge.asdict() for edge in self.edges],
             'selected_id': self.selected_id,
-            'timestamp': self.timestamp
+            'timestamp': self.timestamp,
+            'viewport': self.viewport
         }

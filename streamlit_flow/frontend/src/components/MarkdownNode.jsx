@@ -1,5 +1,5 @@
 // MarkdownFlowNodes.jsx
-import React, { memo } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { Handle, Position, NodeResizer } from 'reactflow';
 import Markdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
@@ -13,11 +13,56 @@ import 'highlight.js/styles/github.css';
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [rehypeHighlight, rehypeRaw, rehypeKatex];
 
+const MAX_RETRIES = 3;
+
+function RetryImage({ src, alt, ...props }) {
+  const [retryCount, setRetryCount] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  useEffect(() => {
+    if (retryCount === 0) {
+      setCurrentSrc(src);
+    } else {
+      const cacheBust = `${src}${src.includes('?') ? '&' : '?'}_retry=${retryCount}`;
+      setCurrentSrc(cacheBust);
+    }
+  }, [retryCount, src]);
+
+  const handleError = () => {
+    if (retryCount < MAX_RETRIES) {
+      const delay = 1000 * (retryCount + 1);
+      setTimeout(() => setRetryCount(c => c + 1), delay);
+    } else {
+      console.warn(`Image failed to load after ${MAX_RETRIES} attempts: ${src}`);
+    }
+  };
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      onError={handleError}
+      {...props}
+    />
+  );
+}
+
 const MemoizedMarkdown = memo(({ content }) => (
-  <Markdown rehypePlugins={rehypePlugins} remarkPlugins={remarkPlugins}>
+  <Markdown
+    rehypePlugins={rehypePlugins}
+    remarkPlugins={remarkPlugins}
+    components={{ img: RetryImage }}
+  >
     {content}
   </Markdown>
 ));
+
+
+// const MemoizedMarkdown = memo(({ content }) => (
+//   <Markdown rehypePlugins={rehypePlugins} remarkPlugins={remarkPlugins}>
+//     {content}
+//   </Markdown>
+// ));
 
 function getContent(data) {
   if (data.pill) {

@@ -42,6 +42,7 @@ def streamlit_flow(
     enable_edge_menu: bool = False,
     hide_watermark: bool = False,
     disabled: bool = False,
+    force_update: bool = False,
 ):
     """
     The main function to render the flowchart component in Streamlit.
@@ -66,11 +67,10 @@ def streamlit_flow(
     - **enable_node_menu** : bool : Whether to enable the node menu.
     - **enable_edge_menu** : bool : Whether to enable the edge menu.
     - **hide_watermark** : bool : Whether to hide the watermark.
+    - **force_update** : bool : Whether to force an update of the component.
     """
     nodes = [node.asdict() for node in state.nodes]
     edges = [edge.asdict() for edge in state.edges]
-
-    # print(state.selected_id)
 
     if state.selected_id is not None:
         selected_node = next(
@@ -80,8 +80,6 @@ def streamlit_flow(
         selected_node = None
     if selected_node is not None:
         selected_node["selected"] = True
-
-    # print("Selected Node:", selected_node)
 
     component_value = _st_flow_func(
         nodes=nodes,
@@ -107,10 +105,11 @@ def streamlit_flow(
         timestamp=state.timestamp,
         component="streamlit_flow",
         disabled=disabled,
+        viewport=state.viewport,
+        forceUpdate=force_update,
     )
 
     if component_value is None:
-        # print("Component value is None, returning current state.")
         return state, None
 
     new_state = (
@@ -123,10 +122,9 @@ def streamlit_flow(
             ],
             selected_id=component_value["selectedId"],
             timestamp=component_value["timestamp"],
+            viewport=component_value["viewport"],
         ),
         component_value["command"],
     )
-
-    # print("New Selected Node:", new_state[0].selected_id)
 
     return new_state
